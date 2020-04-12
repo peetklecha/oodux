@@ -101,9 +101,9 @@ const reducer = (state = initialState, action) => {
 
 ```
 
-Note that Cletus comes with a number of methods to simplify immutable "editing". Note also that there is no need for a method corresponding to the `js default` case.
+Note that Cletus comes with a number of methods to simplify immutable "editing". Note also that there is no need for a method corresponding to the `default` case.
 
-Cletus will automatically create action types corresponding to the name of each instance method you create. It will then also create corresponding action creators for each action type. Any instance method with no arguments will yield an action creator which takes no arguments and contains only a type key. Any instance method with one argument will yield an action creator which takes one argument and contains two keys: `js type` and `js data`. The action creators are stored on your class under the property `js creators`. Creators can only take zero or one arguments.
+Cletus will automatically create action types corresponding to the name of each instance method you create. It will then also create corresponding action creators for each action type. Any instance method with no arguments will yield an action creator which takes no arguments and contains only a type key. Any instance method with one argument will yield an action creator which takes one argument and contains two keys: `type` and `data`. The action creators are stored on your class under the property `creators`. Creators can only take zero or one arguments.
 
 Cletus also creates a reducer for you which takes in the action, checks whether there is an instance method by the same name, and if there is, invokes it on the action's payload. If no method matches the action, it returns the current state.
 
@@ -158,15 +158,15 @@ Async actions should be static methods on your Cletus subclass. Cletus subclasse
 
 ```
 
-These methods should simply implement the async logic you need, then dispatch directly to the store by calling the static methods which correspond to the instance methods you created for the reducer. Note that because these are static methods, `js this` refers to the class, not an instance -- so `js this.gotPets(data)` above is not actually an invocation of the instance method that the user created -- it is invoking a static method created by Cletus.
+These methods should simply implement the async logic you need, then dispatch directly to the store by calling the static methods which correspond to the instance methods you created for the reducer. Note that because these are static methods, `this` refers to the class, not an instance -- so `this.gotPets(data)` above is not actually an invocation of the instance method that the user created -- it is invoking a static method created by Cletus.
 
-In addition to action types and action creators, Cletus also creates a static method by the same name as your instance method which dispatches the corresponding action. So the line `js this.gotPets(data)` above is equivalent to the following line in a Redux thunk:
+In addition to action types and action creators, Cletus also creates a static method by the same name as your instance method which dispatches the corresponding action. So the line `this.gotPets(data)` above is equivalent to the following line in a Redux thunk:
 
 ```js
 dispatch(gotUsers(data))
 ```
 
-Note that the current state is also accessible from your Cletus subclass by calling the `js getState` method as in the `js getPets` static method above.
+Note that the current state is also accessible from your Cletus subclass by calling the `getState` method as in the `getPets` static method above.
 
 ### React-Redux
 
