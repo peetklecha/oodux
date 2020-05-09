@@ -1,6 +1,6 @@
 # Cletus
 
-Cletus is a class-based Redux streamliner. It is meant to reduce Redux boilerplate by eliminating the need for the user to define action types, action creators, and mapDispatchToProps functions in react-redux. The user needs only to define reducers, their initial states, and any async actions, and Cletus will do the rest. Check out the walkthrough below.
+Cletus is a class-based Redux streamliner. It is meant to reduce Redux setup time by eliminating the need for the user to define action types, action creators, and mapDispatchToProps functions in react-redux. The user needs only to define reducers, their initial states, and any async actions, and Cletus will do the rest. Check out the walkthrough below.
 
 ## Example
 
@@ -25,7 +25,9 @@ class State extends Cletus {
 
 ### Reducer
 
-Next, create instance methods for your class. Each instance method should correspond to a "case" in your reducer. Note that we have not (and will not) make action types or action creators. So if when using Redux your reducer looks like this...
+Next, create instance methods for your class. Each instance method should correspond to a "case" in your reducer. Note that we have not (and will not) make action types or action creators.
+
+So if when using Redux your reducer looks like this...
 
 ```js
 const reducer = (state = initialState, action) => {
@@ -103,16 +105,16 @@ const reducer = (state = initialState, action) => {
 
 Note that Cletus comes with a number of methods to simplify immutable "editing". Note also that there is no need for a method corresponding to the `default` case.
 
-Cletus will automatically create action types corresponding to the name of each instance method you create. It will then also create corresponding action creators for each action type. Any instance method with no arguments will yield an action creator which takes no arguments and contains only a type key. Any instance method with one argument will yield an action creator which takes one argument and contains two keys: `type` and `data`. The action creators are stored on your class under the property `creators`. Creators can only take zero or one arguments.
+Cletus will automatically create action types corresponding to the name of each instance method you create. It will then also create corresponding action creators for each action type. Any instance method with no arguments will yield an action creator which takes no arguments and returns an action which contains only a type key. Any instance method with one argument will yield an action creator which takes one argument and returns an action which contains two keys: `type` and `data`. The action creators are stored on your class under the static property `creators`. Creators can only take zero or one arguments.
 
 Cletus also creates a reducer for you which takes in the action, checks whether there is an instance method by the same name, and if there is, invokes it on the action's payload. If no method matches the action, it returns the current state.
 
-If you want to create an instance method but you do not want Cletus to turn it into an action or use it in the reducer, simply prefix it with an underscore.
+If you want to create a utility instance method but you do not want Cletus to turn it into an action or use it in the reducer, simply prefix it with an underscore.
 
 ```js
 
 	_pickRandomPet(){
-		const idx =Math.floor(Math.random() * this.pets.length)
+		const idx = Math.floor(Math.random() * this.pets.length)
 		return this.pets[idx]
 	}
 
@@ -124,7 +126,7 @@ If you want to create an instance method but you do not want Cletus to turn it i
 
 ### Async Actions
 
-Async actions should be static methods on your Cletus subclass. Cletus subclasses also have direct access to the store, dispatch, and state, so there is no need to abstract over the dispatch or getState functions.
+There is no need to use thunk middleware. Async actions should be static methods on your Cletus subclass. Cletus subclasses also have direct access to the store, dispatch, and state, so there is no need to abstract over the dispatch or getState functions.
 
 ```js
 
@@ -163,7 +165,7 @@ These methods should simply implement the async logic you need, then dispatch di
 In addition to action types and action creators, Cletus also creates a static method by the same name as your instance method which dispatches the corresponding action. So the line `this.gotPets(data)` above is equivalent to the following line in a Redux thunk:
 
 ```js
-dispatch(gotUsers(data))
+dispatch(gotPets(data))
 ```
 
 Note that the current state is also accessible from your Cletus subclass by calling the `getState` method as in the `getPets` static method above.
@@ -226,3 +228,29 @@ export default connect(mapStateToProps)(DeletePetsView)
 ```
 
 Note that the whole State class must be imported in order to access its static dispatching methods.
+
+### Initializing
+
+Instead of invoking the Redux function `createStore`, call the `init` method on your Cletus subclass; this returns the Redux store.
+
+```js
+export default State.init()
+```
+
+If you want to combine multiple reducers, call the `combineClasses` method on the Cletus class itself, passing in your reducer classes as arguments.
+
+```js
+export default Cletus.combineClasses(Users, Pets, Parks)
+```
+
+To use any Redux Middleware, simply call the `applyMiddleware` static method on your Cletus class.
+
+```js
+export default State.applyMiddleware(createLogger({ collapsed: true })).init()
+```
+
+```js
+export default Cletus.applyMiddleware(
+	createLogger({ collapsed: true })
+).combineClasses(Users, Pets, Parks)
+```

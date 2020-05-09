@@ -69,7 +69,7 @@ export const addPet = newPet => async (dispatch, getState) => {
 
 export const editPet = pet => async (dispatch, getState) => {
 	try {
-		const { id } = this.getState().me
+		const { id } = getState().me
 		const { data } = await axios.put(`/api/users/${id}/pets/${pet.id}`, pet)
 		dispatch(editedPet(data))
 	} catch (error) {

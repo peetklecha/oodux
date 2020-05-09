@@ -10,6 +10,7 @@ export class State extends Cletus {
 		this.current = null
 	}
 
+	//"thunks"
 	async static login(email, password) {
 		try {
 			const { data } = await axios.post("/auth/login", {email, password})
@@ -51,7 +52,7 @@ export class State extends Cletus {
 	async static editPet(pet){
 		try {
 			const { id } = this.getState().me
-			const {data} = await axios.put(`/api/users/${id}/pets/${pet.id}`, pet)
+			const { data } = await axios.put(`/api/users/${id}/pets/${pet.id}`, pet)
 			this.editedPet(data)
 		} catch (error){
 			this.error(error)
@@ -68,6 +69,7 @@ export class State extends Cletus {
 		}
 	}
 
+	//reducer
 	loggedIn(me){
 		return this.update({me})
 	}
@@ -103,4 +105,3 @@ export class State extends Cletus {
 
 export default State.init()
 
-//2026 characters
