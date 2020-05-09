@@ -1,0 +1,26 @@
+{
+  "name": "cletus",
+  "version": "1.0.0",
+  "description": "A class-based Redux streamliner.",
+  "main": "index.js",
+  "directories": {
+    "example": "example"
+  },
+  "dependencies": {
+    "redux": "^4.0.5"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/peetklecha/cletus.git"
+  },
+  "author": "Peet Klecha",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/peetklecha/cletus/issues"
+  },
+  "homepage": "https://github.com/peetklecha/cletus#readme"
+}
