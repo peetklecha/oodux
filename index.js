@@ -8,7 +8,10 @@ export default class Cletus {
 		this.creators = {}
 
 		const types = Object.getOwnPropertyNames(this.prototype).filter(
-			name => name !== "constructor" && name[0] !== "_"
+			name =>
+				name !== "constructor" &&
+				name[0] !== "_" &&
+				typeof this.prototype[name] === "function"
 		)
 		types.forEach(type => {
 			if (this.prototype[type].length > 1)
