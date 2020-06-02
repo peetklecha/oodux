@@ -2,12 +2,16 @@ import React from "react"
 import { connect } from "react-redux"
 import State from "./example/store"
 
-const DeletePetsView = ({ me, pets }) => (
+const PetsView = ({ user, pets, highestRankedPet }) => (
 	<div>
-		<h1>{`${me.name}'s Pets: Click to Delete`}</h1>
+		<h1>{`${user.name}'s Pets`}</h1>
+		<button onClick={() => State.selectRandomPet()}>Select Random Pet</button>
 		<ul>
+			<li onClick={() => State.setCurrent(highestRankedPet)}>
+				{highestRankedPet.name}
+			</li>
 			{pets.map(pet => (
-				<li onClick={() => State.deletePet(pet)}>{pet.name}</li>
+				<li onClick={() => State.setCurrent(pet)}>{pet.name}</li>
 			))}
 		</ul>
 
@@ -15,6 +19,10 @@ const DeletePetsView = ({ me, pets }) => (
 	</div>
 )
 
-const mapStateToProps = state => ({ me: state.me, pets: state.pets })
+const mapStateToProps = state => ({
+	user: state.user,
+	pets: state.pets,
+	highestRankedPet: state.highestRankedPet,
+})
 
-export default connect(mapStateToProps)(DeletePetsView)
+export default connect(mapStateToProps)(PetsView)

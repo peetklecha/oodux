@@ -1,6 +1,6 @@
 {
 	"name": "cletus",
-	"version": "1.0.1",
+	"version": "1.0.0",
 	"description": "A class-based Redux streamliner.",
 	"main": "index.js",
 	"directories": {

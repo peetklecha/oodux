@@ -1,4 +1,3 @@
-import Cletus from ".."
 import { createStore } from "redux"
 
 const initialState = {
@@ -9,26 +8,29 @@ const initialState = {
 	current: null,
 }
 
-const LOGGED_IN = "LOGGED_IN"
-const LOGGED_OUT = "LOGGED_OUT"
-const TOGGLE_VIEW = "TOGGLE_VIEW"
-const GOT_PETS = "GOT_PETS"
+const SET_USER = "SET_USER"
+const REMOVE_USER = "REMOVE_USER"
+const TOGGLE_NIGHT_THEME = "TOGGLE_NIGHT_THEME"
+const SET_PETS = "SET_PETS"
 const ADDED_PET = "ADDED_PET"
 const EDITED_PET = "EDITED_PET"
 const DELETED_PET = "DELETED_PET"
+const SELECT_PET = "SELECT_PET"
 const SELECT_RANDOM_PET = "SELECT_RANDOM_PET"
 const ERROR = "ERROR"
 
-const loggedIn = me => ({ type: LOGGED_IN, me })
-const loggedOut = () => ({ type: LOGGED_OUT })
-export const toggleView = () => ({ type: TOGGLE_VIEW })
-const gotPets = pets => ({ type: GOT_PETS, pets })
+const loggedIn = me => ({ type: SET_USER, me })
+const loggedOut = () => ({ type: REMOVE_USER })
+export const toggleView = () => ({ type: TOGGLE_NIGHT_THEME })
+const gotPets = pets => ({ type: SET_PETS, pets })
 const addedPet = pet => ({ type: ADDED_PET, pet })
 const editedPet = pet => ({ type: EDITED_PET, pet })
 const deletedPet = pet => ({ type: DELETED_PET, pet })
+export const selectPet = pet => ({ type: SELECT_PET, pet })
 export const selectRandomPet = () => ({ type: SELECT_RANDOM_PET })
 const error = err => ({ type: ERROR, err })
 
+//thunks
 export const login = (email, password) => async dispatch => {
 	try {
 		const { data } = await axios.post("/auth/login", { email, password })
@@ -94,13 +96,13 @@ const pickRandomPet = state => {
 
 const reducer = (state = initialState, action) => {
 	switch (action.type) {
-		case LOGGED_IN:
+		case SET_USER:
 			return { ...state, me: action.me }
-		case LOGGED_OUT:
+		case REMOVE_USER:
 			return initialState
-		case TOGGLE_VIEW:
+		case TOGGLE_NIGHT_THEME:
 			return { ...state, nightTheme: !state.nightTheme }
-		case GOT_PETS:
+		case SET_PETS:
 			return { ...state, pets: action.pets }
 		case ADDED_PET:
 			return { ...state, pets: [...state.pets, action.pet] }
@@ -116,6 +118,11 @@ const reducer = (state = initialState, action) => {
 				...state,
 				pets: state.pets.filter(pet => pet !== action.pet),
 			}
+		case SELECT_PET:
+			return {
+				...state,
+				current: action.pet,
+			}
 		case SELECT_RANDOM_PET:
 			return { ...state, current: pickRandomPet(state) }
 		case ERROR:
@@ -126,5 +133,3 @@ const reducer = (state = initialState, action) => {
 }
 
 export default createStore(reducer)
-
-//3223 characters
