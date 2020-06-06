@@ -32,7 +32,7 @@ case ADD_PRODUCT:
 	return {
 		...state,
 		products: [...state.products, action.product],
-		coupons: [...state.coupons, action.coupons],
+		coupons: [...state.coupons, action.coupon],
 	}
 ```
 
@@ -46,7 +46,9 @@ addProduct({product, coupon}){
 
 ```
 
-First of all, when an instance method is defined in a Cletus subclass, upon initializing the store, Cletus will also automatically create an action type, an action creator for that type, and a static method which dispatches that actions created by that creator.
+This method will be called on the current state instance by the reducer (which is automatically created by Cletus). So `this` will represent the current state, and `this.add` is a method that creates a new state instance, copies the current instance, and then modifies it, allowing for simple and quick immutable editing.
+
+First of all, when an instance method is defined in a Cletus subclass, upon initializing the store, Cletus will also automatically create an action type, an action creator for that type, and a static method which dispatches that action created by that creator.
 
 The action type will be equal to the name of the method. Any instance method with no arguments will yield an action creator which takes no arguments and returns an action which contains only a type key. Any instance method with one argument will yield an action creator which takes one argument and returns an action which contains two keys: `type` and `data`. Instance methods thus can only take zero or one arguments; use destructuring for multiple arguments.
 
@@ -57,7 +59,7 @@ State.creators.addProduct // === data => ({type:"addProduct", data})
 State.addProduct // === data => dispatch(State.creators.addProduct(data))
 ```
 
-Cletus also creates a reducer for you which takes in the action, checks whether there is an instance method by the same name, and if there is, invokes it on the action's payload. If no method matches the action, it returns the current state; there is no need to write a method to handle default cases.
+Cletus also creates a reducer for you which takes in the action, checks whether there is an instance method by the same name, and if there is, invokes it on the action's payload. If no method matches the action's type, it returns the current state; there is no need to write a method to handle default cases.
 
 ### Overriding Default Behavior
 
@@ -71,14 +73,14 @@ If you want to create a utility instance method but you do not want Cletus to tu
 	}
 
 	selectRandomPet(){
-		return this.update({current: this._pickRandomPet()})
+		return this.setCurrent(this._pickRandomPet())
 	}
 
 ```
 
 ### Immutable Editing Helpers
 
-Cletus comes with a handful of immutable editing helper functions. Cletus will also automatically create magic instance methods (with corresponding action types, creators, and static dispatching methods) for each property on your state, depending on the type of its initial value. See the API for details.
+Cletus comes with a handful of immutable editing helper functions, like `this.add` seen above. Cletus will also automatically create magic instance methods (with corresponding action types, creators, and static dispatching methods) for each property on your state, depending on the type of its initial value; `this.setCurrent` seen above is an example of that. See the API for details.
 
 ### Async Actions
 
@@ -119,6 +121,8 @@ There is no need to use thunk middleware. Async actions should be static methods
 These methods should simply implement the async logic you need, then dispatch directly to the store by calling the static methods which correspond to the instance methods you created for the reducer. Note that because these are static methods, `this` refers to the class, not an instance -- so `this.setPets(data)` above is not actually an invocation of the instance method that the user created -- it is invoking the static method created automatically by Cletus.
 
 Note that the current state is also accessible from your Cletus subclass by calling the `getState` method as in the `getPets` static method above.
+
+If you are using multiple reducers, and wish to keep your async actions in a separate file from your reducers, you can put them on the parent class; see Multiple Reducers below.
 
 ### React-Redux
 
@@ -163,7 +167,7 @@ Whereas without Cletus you may have a mapStateToProps that looks like this:
 const mapStateToProps = state => ({
 	user: state.user,
 	pets: state.pets,
-	highestRankedPet: this.pets.reduce((bestPet, currentPet) =>
+	highestRankedPet: state.pets.reduce((bestPet, currentPet) =>
 		currentPet.rank > bestPet.rank ? currentPet : bestPet
 	),
 })
@@ -209,18 +213,45 @@ export default State.applyMiddleware(createLogger({ collapsed: true })).init()
 To use a Redux Middleware which wraps the Redux `applyMiddleware` function, simply call the `wrapMiddleware` static method on your Cletus (sub)class. Here is an example with multiple reducers.
 
 ```js
-export default Cletus.wrapMiddleware(reduxDevTools).init()
+export default State.wrapMiddleware(reduxDevTools).init()
 ```
 
 ### Multiple Reducers
 
-Cletus supports multiple reducers. First make a separate Cletus subclass for each reducer. Then call the `combineClasses` method on the Cletus class itself, passing in your Cletus subclasses as arguments.
+Cletus supports the multiple reducers pattern seen in Redux. In order to do this, first determine a parent class -- it can be Cletus itself, or you can create a subclass which extends Cletus. Then create classes which extend the parent class -- one for each slice of your state. Then call the `combineClasses` method on the parent class, passing in its subclasses as arguments.
 
 ```js
 export default Cletus.combineClasses(Users, Pets, Parks)
 ```
 
-There are some special effects that come with combining classes. One is that any static dispatching methods
+This will create a state object whose keys are camel cased versions of the names of the relevant subclasses. Note that parent class is not included in the state object, so there is no point in defining a constructor on the parent class.
+
+It may still be worthwhile to define a custom parent class instead of using Cletus for the following reasons: 1) you may wish to create utility methods which are available to all subclasses (note that these do not need to be prefixed with an underscore, because Cletus will not try to make action creators for methods on the parent class); 2) you may wish to put some or all of your async actions on your parent class as a way to organize your redux logic.
+
+If you want to make multiple reducers react to the same action type just give each class an instance method by the same name.
+
+```js
+class User extends Cletus {
+	...
+	removeUser(){
+		return new User()
+	}
+}
+
+class Cart extends Cletus {
+	...
+	removeUser(){
+		return new Cart()
+	}
+}
+
+```
+
+In the above example, we want to clear out our application state when the user logs out, so when the action `"removeUser"` is dispatched, both of the above reducing methods and invoked, return a state whose `user` and `cart` slices have been returned to their initial setting.
+
+By default, all automatically created actions and dispatching methods are attached to the parent class so that they are accessible from any child class. This means, for instance, that an async action defined one class can dispatch actions defined in any of the other classes. Automatically created magic reducing methods are attached to the prototype of the relevant subclass, but their corresponding action creators and dispatchers go to the parent class.
+
+Note that if two or more state slices have properties of the same name, the magic reducing methods will still be created, but no action creators or disaptchers will be created.
 
 ## API
 
@@ -441,7 +472,7 @@ State.addToData(34, 47, 52) // this.store.getState().data === [42, 34, 47, 52]
 
 #### {CletusSubclass}.prototype.removeFrom{ArrayPropertyName}(data)
 
-#### {CletusSubclass}.update{ArrayPropertyName}(data)
+#### {CletusSubclass}.removeFrom{ArrayPropertyName}(data)
 
 Creates a copy of the invoking instance, with `data` removed from `copy[ArrayPropertyName]`. If `data` was not originally present the copy is identical. See also `{CletusSubclass}.prototype.removeFrom{ArrayPropertyName}ById`.
 
