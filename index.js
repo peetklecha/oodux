@@ -1,33 +1,47 @@
 /* eslint-disable guard-for-in */
-import { createStore, applyMiddleware, combineReducers } from "redux"
-import { methodName } from "./utils"
+const { createStore, applyMiddleware, combineReducers } = require("redux")
+const { methodName, allValidProperties } = require("./utils")
 
-export default class Cletus {
+class Cletus {
 	static __makeReducer(topLevelClass) {
 		if (this === Cletus) throw new Error("Failed to subclass Cletus.")
 
 		this.topLevelClass = topLevelClass || this
+		if (topLevelClass) {
+			const userStatics = allValidProperties(this)
+			this.__shareStatics(userStatics)
+		}
+
 		this.creators = {}
+		const userTypes = allValidProperties(this.prototype)
+
 		const initialState = new this()
 		const fields = Object.entries(initialState)
-		for (const entry of fields) this.__makeDefaultCreators(entry)
+		for (const entry of fields) this.__makeDefaultMethods(entry)
 
-		const properties = Object.getOwnPropertyDescriptors(this.prototype)
-		const types = Object.keys(properties).filter(
-			name => name !== "constructor" && name[0] !== "_" && !properties[name].get
+		userTypes.forEach(type =>
+			this.topLevelClass.__makeUserMethods(type, this.prototype[type].length)
 		)
-		types.forEach(type => this.__makeCreator(type, this.prototype[type].length))
 
 		this.__reducer = (state = initialState, action) => {
-			if (action.type in this.creators) return state[action.type](action.data)
+			if (state[action.type]) return state[action.type](action.data)
 			return state
 		}
 		return this.__reducer
 	}
 
+	static __makeUserMethods(type, numberOfArgs) {
+		numberOfArgs = Math.max(
+			numberOfArgs,
+			this.creators[type] ? this.creators[type].length : 0
+		)
+		this.__makeCreator(type, numberOfArgs)
+		this.__makeDispatcher(type, numberOfArgs)
+	}
+
 	static __makeCreator(type, args) {
 		if (args > 1)
-			throw new Error("Reducer methods should have at most one argument.")
+			throw new Error("Reducer methods should take at most one argument.")
 		else if (args > 0) this.creators[type] = data => ({ type, data })
 		else this.creators[type] = () => ({ type })
 	}
@@ -43,36 +57,25 @@ export default class Cletus {
 			}
 	}
 
-	static __makeAllDispatchers(classes) {
-		this.creators = {}
-		const types = {}
-		for (const cls of classes) {
-			for (const type in cls.creators) {
-				types[type] = types[type] || []
-				types[type].push(cls)
-			}
-		}
-		for (const type in types) {
-			const length = +types[type].some(cls => cls.prototype[type].length > 0)
-			// if (types[type].length > 1) {
-			// 	this[type] = this.__warnOverloadedStaticMethod(type)
-			// 	for (const cls of types[type]) cls.__makeDispatcher(type, length)
-			// } else {
-			this.__makeCreator(type, length)
-			this.__makeDispatcher(type, length)
-			// }
-		}
+	static __shareStatics(userStatics) {
+		userStatics.forEach(method => (this.topLevelClass[method] = this[method]))
 	}
 
-	static __shareAllStaticMethods(classes) {}
-
-	static __tryToMakeDefaultCreator(prefix, key, callback, suffix = "") {
+	static __tryToMakeDefaultMethods(prefix, key, callback, suffix = "") {
 		const name = methodName(prefix, key) + suffix
+		const tlc = this.topLevelClass
 		if (!this.prototype[name]) {
 			this.prototype[name] = function (arg) {
 				return callback.bind(this)(arg)
 			}
-			this.__makeCreator(name, callback.length)
+			if (name in tlc.creators) {
+				tlc.creators[name] = null
+				tlc[name] = this.__warnCompetingDefaultMethods(name)
+			} else {
+				tlc.__makeCreator(name, callback.length)
+				tlc.__makeDispatcher(name, callback.length)
+				if (tlc.creatorSources) tlc.creatorSources[name] = this
+			}
 		}
 	}
 
@@ -84,33 +87,41 @@ export default class Cletus {
 		}
 	}
 
-	static __makeDefaultCreators([_key, value]) {
-		this.__tryToMakeDefaultCreator("set", _key, function (data) {
+	static __warnCompetingDefaultMethods(name) {
+		return () => {
+			throw new Error(
+				`The action type ${name} could not be automatically created because multiple state-slices have the same property name. Instance methods for these state-slices are still available. `
+			)
+		}
+	}
+
+	static __makeDefaultMethods([_key, value]) {
+		this.__tryToMakeDefaultMethods("set", _key, function (data) {
 			return this.update({ [_key]: data })
 		})
 
 		if (typeof value === "boolean") {
-			this.__tryToMakeDefaultCreator("toggle", _key, function () {
+			this.__tryToMakeDefaultMethods("toggle", _key, function () {
 				return this.update({ [_key]: !this[_key] })
 			})
 		} else if (typeof value === "number") {
-			this.__tryToMakeDefaultCreator("increment", _key, function (num) {
+			this.__tryToMakeDefaultMethods("increment", _key, function (num) {
 				return this.update({ [_key]: this[_key] + num })
 			})
 		} else if (typeof value === "object") {
 			if (value.constructor === Array) {
-				this.__tryToMakeDefaultCreator("addTo", _key, function (...objs) {
+				this.__tryToMakeDefaultMethods("addTo", _key, function (arr) {
 					const newState = this.copy()
-					newState[_key] = [...newState[_key], ...objs]
+					newState[_key] = [...newState[_key], ...arr]
 					return newState
 				})
-				this.__tryToMakeDefaultCreator("update", _key, function ({
+				this.__tryToMakeDefaultMethods("update", _key, function ({
 					key,
 					data,
 				}) {
 					return this.updateBy(key, { [_key]: data })
 				})
-				this.__tryToMakeDefaultCreator(
+				this.__tryToMakeDefaultMethods(
 					"update",
 					_key,
 					function (obj) {
@@ -118,10 +129,10 @@ export default class Cletus {
 					},
 					"ById"
 				)
-				this.__tryToMakeDefaultCreator("removeFrom", _key, function (data) {
+				this.__tryToMakeDefaultMethods("removeFrom", _key, function (data) {
 					return this.remove({ [key]: data })
 				})
-				this.__tryToMakeDefaultCreator(
+				this.__tryToMakeDefaultMethods(
 					"removeFrom",
 					_key,
 					function (id) {
@@ -157,19 +168,20 @@ export default class Cletus {
 				"Store has already been initialized. If using combineClasses, do not call Cletus.init."
 			)
 		this.store = createStore(this.__makeReducer(), this.__makeMiddleware())
-		for (const key in this.creators)
-			this.__makeDispatcher(key, this.creators[key].length)
 		return this.store
 	}
 
 	static combineClasses(...classes) {
+		this.creators = {}
+		this.creatorSources = {}
 		const reducers = classes.reduce(
-			(obj, cls) => ({ ...obj, [cls.name.toLowerCase()]: cls.__makeReducer() }),
+			(obj, cls) => ({
+				...obj,
+				[cls.name.toLowerCase()]: cls.__makeReducer(this),
+			}),
 			{}
 		)
 		this.store = createStore(combineReducers(reducers), this.__makeMiddleware())
-		this.__makeAllDispatchers(classes)
-		this.__shareAllStaticMethods(classes)
 		return this.store
 	}
 
@@ -202,12 +214,8 @@ export default class Cletus {
 	}
 
 	update(obj) {
-		console.log("obj", obj)
-		console.log("this", this)
 		const copy = this.copy()
-		console.log("copy", copy)
 		const output = copy.__imitateExistingProps(obj)
-		console.log("output", output)
 		return output
 	}
 
@@ -277,3 +285,5 @@ export default class Cletus {
 
 Cletus.middleware = []
 Cletus.wrappingMiddleware = []
+Cletus.topLevelClass = Cletus
+module.exports = Cletus

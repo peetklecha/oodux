@@ -3,6 +3,7 @@
 	"version": "1.0.0",
 	"description": "A class-based Redux streamliner.",
 	"main": "index.js",
+	"type": "module",
 	"directories": {
 		"example": "example"
 	},
@@ -10,9 +11,12 @@
 		"redux": "^4.0.5"
 	},
 	"bundleDependencies": false,
-	"devDependencies": {},
+	"devDependencies": {
+		"chai": "^4.2.0",
+		"mocha": "^7.2.0"
+	},
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "NODE_ENV='test' mocha cletus.spec.js -w "
 	},
 	"repository": {
 		"type": "git",
