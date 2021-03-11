@@ -11,7 +11,7 @@ export class State extends Cletus {
 	}
 
 	//async actions
-	static async login(email, password) {
+	static login = async (email, password) => {
 		try {
 			const { data } = await axios.post("/auth/login", { email, password })
 			this.setUser(data)
@@ -20,7 +20,7 @@ export class State extends Cletus {
 		}
 	}
 
-	static async logout() {
+	static logout = async () => {
 		try {
 			await axios.post("/auth/logout")
 			this.removeUser()
@@ -29,7 +29,7 @@ export class State extends Cletus {
 		}
 	}
 
-	static async getPets() {
+	static getPets = async () => {
 		try {
 			const { id } = this.getState().user
 			const { data } = await axios.get(`/api/users/${id}/pets`)
@@ -39,7 +39,7 @@ export class State extends Cletus {
 		}
 	}
 
-	static async addPet(newPet) {
+	static addPet = async newPet => {
 		try {
 			const { id } = this.getState().user
 			const { data } = await axios.post(`/api/users/${id}pets`, newPet)
@@ -49,7 +49,7 @@ export class State extends Cletus {
 		}
 	}
 
-	static async editPet(pet) {
+	static editPet = async pet => {
 		try {
 			const { id } = this.getState().user
 			const { data } = await axios.put(`/api/users/${id}/pets/${pet.id}`, pet)
@@ -59,7 +59,7 @@ export class State extends Cletus {
 		}
 	}
 
-	static async deletePet(pet) {
+	static deletePet = async pet => {
 		try {
 			const { id } = this.getState().user
 			await axios.delete(`/api/users/${id}/pets/${pet.id}`)
@@ -90,16 +90,18 @@ export class State extends Cletus {
 		//using built-in setCurrent reducing method, but not its corresponding action creator or dispatcher
 		return this.setCurrent(this._pickRandomPet())
 	}
-
-	//note the following magic reducing methods also being used:
-	//-setUser
-	//-toggleNightTheme
-	//-setPets
-	//-addToPets
-	//-updatePetsById
-	//-setCurrent (used in UI component)
-	//-removeFromPets
-	//-setError
 }
 
 export default State.init()
+
+export const {
+	login,
+	logout,
+	getPets,
+	addPet,
+	editPet,
+	deletePet,
+	selectRandomPet,
+	setCurrent,
+	toggleView,
+} = State

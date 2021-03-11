@@ -33,7 +33,7 @@ const PetsView = ({
 const mapStateToProps = state => ({
 	user: state.user,
 	pets: state.pets,
-	highestRankedPet: this.pets.reduce((bestPet, currentPet) =>
+	highestRankedPet: state.pets.reduce((bestPet, currentPet) =>
 		currentPet.rank > bestPet.rank ? currentPet : bestPet
 	),
 })

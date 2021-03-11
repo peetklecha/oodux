@@ -90,7 +90,7 @@ export const deletePet = pet => async (dispatch, getState) => {
 }
 
 const pickRandomPet = state => {
-	const idx = Math.floor(Math.random() * this.pets.length)
+	const idx = Math.floor(Math.random() * state.pets.length)
 	return state.pets[idx]
 }
 

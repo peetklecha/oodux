@@ -1,8 +1,9 @@
 /* eslint-disable guard-for-in */
 const { createStore, applyMiddleware, combineReducers } = require("redux")
-const { methodName, allValidProperties } = require("./utils")
+const { methodName, allValidProperties, allGetters } = require("./utils")
 
 class Cletus {
+	static __getters = null
 	static __makeReducer(topLevelClass) {
 		if (this === Cletus) throw new Error("Failed to subclass Cletus.")
 
@@ -17,11 +18,17 @@ class Cletus {
 
 		const initialState = new this()
 		const fields = Object.entries(initialState)
+		this.__tryToMakeDefaultMethods("clear", "", function () {
+			return new this.constructor()
+		})
 		for (const entry of fields) this.__makeDefaultMethods(entry)
 
 		userTypes.forEach(type =>
 			this.topLevelClass.__makeUserMethods(type, this.prototype[type].length)
 		)
+		this.topLevelClass.__memoizeGetters(this.prototype)
+
+		// userGetters.forEach(getter => this.topLevelClass.__memoizeGetter(getter))
 
 		this.__reducer = (state = initialState, action) => {
 			if (state[action.type]) return state[action.type](action.data)
@@ -55,6 +62,46 @@ class Cletus {
 			this[type] = () => {
 				this.store.dispatch(this.creators[type]())
 			}
+	}
+
+	static __memoizeGetters(prototype) {
+		for (const [getterKey, descriptor] of allGetters(prototype)) {
+			const _this = this
+			this.__getters = this.__getters || {}
+			const proxy = new Proxy(
+				{},
+				{
+					get(_, stateKey) {
+						const value = _this.getState()[stateKey]
+						_this.__getters[getterKey].memo[stateKey] = value
+						return value
+					},
+				}
+			)
+			this.__getters[getterKey] = {
+				userGetter: descriptor.get.bind(proxy),
+				memo: {},
+				derivedValue: null,
+				used: false,
+			}
+			Object.defineProperty(prototype, getterKey, {
+				get() {
+					const info = _this.__getters[getterKey]
+					const state = _this.getState()
+					const entries = Object.entries(info.memo)
+					if (
+						!info.used ||
+						!entries.all(([key, value]) => state[key] === value)
+					) {
+						info.memo = {}
+						const value = info.userGetter()
+						info.derivedValue = value
+					}
+					info.used = true
+					return info.derivedValue
+				},
+			})
+		}
 	}
 
 	static __shareStatics(userStatics) {
@@ -115,12 +162,13 @@ class Cletus {
 					newState[_key] = [...newState[_key], ...arr]
 					return newState
 				})
-				this.__tryToMakeDefaultMethods("update", _key, function ({
-					key,
-					data,
-				}) {
-					return this.updateBy(key, { [_key]: data })
-				})
+				this.__tryToMakeDefaultMethods(
+					"update",
+					_key,
+					function ({ key, data }) {
+						return this.updateBy(key, { [_key]: data })
+					}
+				)
 				this.__tryToMakeDefaultMethods(
 					"update",
 					_key,
