@@ -1,17 +1,19 @@
-# Cletus
+# Oodux
 
-Cletus is a class-based Redux toolkit. It is meant to reduce Redux setup time by eliminating the need for the user to define action types, action creators, and in many cases mapDispatchToProps functions in react-redux. The user needs only to define reducers, their initial states, and any async actions, and Cletus will do the rest. Cletus also automatically provides simple and predictable action types and creators for state properties based on their types, and allows for the use of getters to keep data manipulation logic out of UI components. Check out the walkthrough below.
+Oodux is an object-oriented Redux toolkit. It provides an OO wrapper around Redux, and is meant to reduce Redux setup time by eliminating the need for the user to define action types, action creators, and in many cases mapDispatchToProps functions in react-redux. The user needs only to define reducers, their initial states, and any async actions, and Oodux will do the rest. Oodux also automatically provides simple and predictable action types and creators for state properties based on their types, and allows for the use of automatically memoized getters to keep data manipulation logic out of UI components. Check out the walkthrough below.
 
 ## Example
 
-This shows a simple example of how to use Cletus, using a single reducer. Cletus also supports multiple reducers -- see below.
+This shows a simple example of how to use Oodux, using a single reducer. Oodux also supports multiple reducers -- see below.
 
 ### Initial State
 
-First, create a class which extends Cletus. Instances of this class will serve as the state representations held in the store by Redux, so its constructor should create your initial/default state.
+First, create a class which extends Oodux. Instances of this class will serve as the state representations held in the store by Redux, so its constructor should create your initial/default state.
 
 ```js
-class State extends Cletus {
+import Oodux from "oodux"
+
+class State extends Oodux {
 	constructor() {
 		super()
 		this.user = {}
@@ -36,7 +38,7 @@ case ADD_PRODUCT:
 	}
 ```
 
-...your Cletus class should have an instance method like the following:
+...your Oodux class should have an instance method like the following:
 
 ```js
 
@@ -46,24 +48,24 @@ addProduct({product, coupon}){
 
 ```
 
-This method will be called on the current state instance by the reducer (which is automatically created by Cletus). So `this` will represent the current state, and `this.add` is a method that creates a new state instance, copies the current instance, and then modifies it, allowing for simple and quick immutable editing.
+This method will be called on the current state instance by the reducer (which is automatically created by Oodux). So `this` will represent the current state, and `this.add` is a built-in method that creates a new state instance, copies the current instance, and then modifies it, allowing for simple and quick immutable editing.
 
-First of all, when an instance method is defined in a Cletus subclass, upon initializing the store, Cletus will also automatically create an action type, an action creator for that type, and a static method which dispatches that action created by that creator.
+First of all, when an instance method is defined in a Oodux subclass, upon initializing the store, Oodux will also automatically create an action type, an action creator for that type, and a static method (by the same name as the instance method) which dispatches that action created by that creator.
 
-The action type will be equal to the name of the method. Any instance method with no arguments will yield an action creator which takes no arguments and returns an action which contains only a type key. Any instance method with one argument will yield an action creator which takes one argument and returns an action which contains two keys: `type` and `data`. Instance methods thus can only take zero or one arguments; use destructuring for multiple arguments.
+The action type will be equal to the name of the method. Any instance method with no arguments will yield an action creator of the form `() => ({ type })`. Any instance method with one argument will yield an action creator of the form `data => ({ type, data })`. Instance methods thus can only take zero or one arguments; use destructuring for multiple arguments.
 
 So by creating the instance method seen above, you also get the following for free:
 
 ```js
-State.creators.addProduct // === data => ({type:"addProduct", data})
+State.__creators.addProduct // === data => ({type:"addProduct", data})
 State.addProduct // === data => dispatch(State.creators.addProduct(data))
 ```
 
-Cletus also creates a reducer for you which takes in the action, checks whether there is an instance method by the same name, and if there is, invokes it on the action's payload. If no method matches the action's type, it returns the current state; there is no need to write a method to handle default cases.
+Oodux also creates a reducer for you which takes in the action, checks whether there is an instance method by the same name, and if there is, invokes it on the action's payload. If no method matches the action's type, it returns the current state; there is no need to write a method to handle default cases.
 
 ### Overriding Default Behavior
 
-If you want to create a utility instance method but you do not want Cletus to turn it into an action or use it in the reducer, simply prefix it with an underscore.
+If you want to create a utility instance method but you do not want Oodux to turn it into an action or use it in the reducer, simply prefix it with an underscore.
 
 ```js
 
@@ -80,11 +82,11 @@ If you want to create a utility instance method but you do not want Cletus to tu
 
 ### Immutable Editing Helpers
 
-Cletus comes with a handful of immutable editing helper functions, like `this.add` seen above. Cletus will also automatically create magic instance methods (with corresponding action types, creators, and static dispatching methods) for each property on your state, depending on the type of its initial value; `this.setCurrent` seen above is an example of that. See the API for details.
+Oodux comes with a handful of immutable editing helper functions, like `this.add` seen above. Oodux will also automatically create magic instance methods (with corresponding action types, creators, and static dispatching methods) for each property on your initial state, depending on the type of its initial value; `this.setCurrent` seen above is an example of that; it is automatically created because the initial state includes a property called `current`. See the API for details.
 
 ### Async Actions
 
-There is no need to use thunk middleware. Async actions should be static methods on your Cletus subclass. And because Cletus subclasses have direct access to the redux store, there is no need to abstract over the dispatch or getState functions.
+There is no need to use thunk middleware. Async actions should be static methods on your Oodux subclass. And because Oodux subclasses have direct access to the redux store, there is no need to abstract over the dispatch or getState functions.
 
 ```js
 
@@ -108,7 +110,7 @@ There is no need to use thunk middleware. Async actions should be static methods
 
 	static async getPets() {
 		try {
-			const { id } = this.getState().me
+			const { id } = this.getState().user
 			const { data } = await axios.get(`/api/users/${id}/pets`)
 			this.setPets(data)
 		} catch (error) {
@@ -118,24 +120,46 @@ There is no need to use thunk middleware. Async actions should be static methods
 
 ```
 
-These methods should simply implement the async logic you need, then dispatch directly to the store by calling the static methods which correspond to the instance methods you created for the reducer. Note that because these are static methods, `this` refers to the class, not an instance -- so `this.setPets(data)` above is not actually an invocation of the instance method that the user created -- it is invoking the static method created automatically by Cletus.
+These methods should simply implement the async logic you need, then dispatch directly to the store by calling the static methods which correspond to either the instance methods you created for the reducer or magic methods created automatically. Note that because these are static methods, `this` refers to the class, not an instance -- so `this.setPets(data)` above is not actually an invocation of the instance method that the user created -- it is invoking the static method created automatically by Oodux.
 
-Note that the current state is also accessible from your Cletus subclass by calling the `getState` method as in the `getPets` static method above.
+Note that the current state is also accessible from your Oodux subclass by calling the `getState` static method as in the `getPets` static method above.
 
 If you are using multiple reducers, and wish to keep your async actions in a separate file from your reducers, you can put them on the parent class; see Multiple Reducers below.
 
+<!-- When creating static methods on an Oodux subclass, you may want to use static fields and arrow notation so that these methods are automatically bound. This may make exporting and importing them easier if many different modules need to make use of many such methods. For example, the following:
+
+```js
+//store.js
+export default class State extends Oodux {
+	static async fetchData(data) {
+		//...
+	}
+}
+
+//component.js
+
+import State from "./store.js"
+
+export default props => <button onClick={State.fetchData(props.id)}>
+
+```
+
+Could instead look like this:
+
+-->
+
 ### React-Redux
 
-When using React-Redux, Cletus often eliminates the need to use mapDispatchToProps.
+When using React-Redux, Oodux often eliminates the need to use mapDispatchToProps.
 
 ```js
 import React from "react"
 import { connect } from "react-redux"
 import State from "./example/store"
 
-const DeletePetsView = ({ me, pets }) => (
+const DeletePetsView = ({ user, pets }) => (
 	<div>
-		<h1>{`${me.name}'s Pets: Click to Delete`}</h1>
+		<h1>{`${user.name}'s Pets: Click to Delete`}</h1>
 		<ul>
 			{pets.map(pet => (
 				<li onClick={() => State.deletePet(pet)}>{pet.name}</li>
@@ -146,22 +170,42 @@ const DeletePetsView = ({ me, pets }) => (
 	</div>
 )
 
-const mapStateToProps = state => ({ me: state.me, pets: state.pets })
+const mapStateToProps = state => ({ user: state.user, pets: state.pets })
 
 export default connect(mapStateToProps)(DeletePetsView)
 ```
 
-Note that instead of importing the whole State class, we could also add lines to our State module to export just those async methods, like so:
+Note that instead of importing the whole State class, we could also add lines to our State module to export just those async methods. This is made easy by the fact that automatically created static methods are always bound.
 
 ```js
-export const deletePet = State.deletePet.bind(State)
+export const { deletePet, toggleView } = State
 ```
 
-### Getters
+When creating custom static async methods, it suggested that these should use static field and arrow notation to allow for easy export.
 
-Getters defined in the body of your Cletus subclass will not be made into action creators, no matter how you name them. But they can be useful for allowing front end components to subscribe to processed data without duplicating information in your store or putting data processing logic in your UI components.
+```js
+//store.js
+export default class State extends Oodux {
+	static fetchData = async (data) => {
+		//...
+	}
+}
 
-Whereas without Cletus you may have a mapStateToProps that looks like this:
+export const {fetchData} = State
+
+//file2
+
+import {fetchData} from "./store.js"
+
+export default props => <button onClick={() => fetchData(props.id)}>
+
+```
+
+### Memoized Getters
+
+Getters defined in the body of your Oodux subclass will not be made into action creators, no matter how you name them. But they can be useful for allowing front end components to subscribe to processed data without duplicating information in your store or putting data processing logic in your UI components.
+
+Whereas without Oodux you may have a mapStateToProps that looks like this:
 
 ```js
 const mapStateToProps = state => ({
@@ -173,7 +217,7 @@ const mapStateToProps = state => ({
 })
 ```
 
-Cletus allows for better seperation of concerns, having the following method in your Cletus subclass:
+Oodux allows for better seperation of concerns, having the following method in your Oodux subclass:
 
 ```js
 get highestRankedPet(){
@@ -194,23 +238,23 @@ const mapStateToProps = state => ({
 })
 ```
 
-Trying to define setters on your Cletus subclass will throw an error.
+Any getters defined on your Oodux subclass will also be automatically memoized, so that it is only re-run when the state components that it derives its value from change. For example, in the case of `get highestRankedPet()` above, this value will be cached and returned without recalculating until the value of `this.pets` changes. Note that if your getter includes conditional logic that depends on non-state information to determine which state properties it accesses, the memoization will not work properly. To prevent a getter from being automatically memoized, prefix it with `_`.
 
 ### Initializing
 
-Instead of invoking the Redux function `createStore`, call the `init` method on your Cletus subclass; this returns the Redux store.
+Instead of invoking the Redux function `createStore`, call the `init` method on your Oodux subclass; this returns the Redux store.
 
 ```js
 export default State.init()
 ```
 
-To use any Redux Middleware, simply call the `applyMiddleware` static method on your Cletus class. Here is an example with a single reducer.
+To use any Redux Middleware, simply call the `applyMiddleware` static method on your Oodux class. Here is an example with a single reducer.
 
 ```js
 export default State.applyMiddleware(createLogger({ collapsed: true })).init()
 ```
 
-To use a Redux Middleware which wraps the Redux `applyMiddleware` function, simply call the `wrapMiddleware` static method on your Cletus (sub)class. Here is an example with multiple reducers.
+To use a Redux Middleware which wraps the Redux `applyMiddleware` function, simply call the `wrapMiddleware` static method on your Oodux (sub)class. Here is an example with multiple reducers.
 
 ```js
 export default State.wrapMiddleware(reduxDevTools).init()
@@ -218,27 +262,27 @@ export default State.wrapMiddleware(reduxDevTools).init()
 
 ### Multiple Reducers
 
-Cletus supports the multiple reducers pattern seen in Redux. In order to do this, first determine a parent class -- it can be Cletus itself, or you can create a subclass which extends Cletus. Then create classes which extend the parent class -- one for each slice of your state. Then call the `combineClasses` method on the parent class, passing in its subclasses as arguments.
+Oodux supports the multiple reducers pattern seen in Redux. In order to do this, first determine a parent class -- it can be the class exported by the Oodux package, or you can create a subclass which extends Oodux. Then create classes which extend the parent class -- one for each slice of your state. Then call the `initSlices` method on the parent class, passing in its subclasses as arguments.
 
 ```js
-export default Cletus.combineClasses(Users, Pets, Parks)
+export default Oodux.initSlices(Users, Pets, Parks)
 ```
 
 This will create a state object whose keys are camel cased versions of the names of the relevant subclasses. Note that parent class is not included in the state object, so there is no point in defining a constructor on the parent class.
 
-It may still be worthwhile to define a custom parent class instead of using Cletus for the following reasons: 1) you may wish to create utility methods which are available to all subclasses (note that these do not need to be prefixed with an underscore, because Cletus will not try to make action creators for methods on the parent class); 2) you may wish to put some or all of your async actions on your parent class as a way to organize your redux logic.
+It may still be worthwhile to define a custom parent class instead of using Oodux for the following reasons: 1) you may wish to create utility methods which are available to all subclasses (note that these do not need to be prefixed with an underscore, because Oodux will not try to make action creators for methods on the parent class); 2) you may wish to put some or all of your async actions on your parent class as a way to organize your redux logic.
 
 If you want to make multiple reducers react to the same action type just give each class an instance method by the same name.
 
 ```js
-class User extends Cletus {
+class User extends Oodux {
 	...
 	removeUser(){
 		return new User()
 	}
 }
 
-class Cart extends Cletus {
+class Cart extends Oodux {
 	...
 	removeUser(){
 		return new Cart()
@@ -257,46 +301,46 @@ Note that if two or more state slices have properties of the same name, the magi
 
 ### Static Properties
 
-#### Cletus.creators
+#### Oodux.\_\_creators
 
-An object whose keys are the action types, and whose values are the corresponding action creators. Automatically populated by `Cletus.combineClasses` or `Cletus.init`.
+An object whose keys are the action types, and whose values are the corresponding action creators. Automatically populated by `Oodux.initSlices` or `Oodux.init`.
 
-#### Cletus.store
+#### Oodux.store
 
-The redux store. When using multiple reducers, each Cletus subclass has a reference to the store, but there is still only one store.
+The redux store. When using multiple reducers, each Oodux subclass has a reference to the store, but there is still only one store.
 
 ### Initializing Static Methods
 
-#### Cletus.applyMiddleware(middleware1[, ...[, middlewareN]])
+#### Oodux.applyMiddleware(middleware1[, ...[, middlewareN]])
 
-Stores the provided middlewares on `Cletus.middlewares`, which are then passed into Redux's `applyMiddleware` by `Cletus.init` or `Cletus.combineClasses`. Returns the invoking Cletus (sub)class. The chaining order with `Cletus.wrapMiddleware` does not matter.
+Stores the provided middlewares on `Oodux.middlewares`, which are then passed into Redux's `applyMiddleware` by `Oodux.init` or `Oodux.initSlices`. Returns the invoking Oodux (sub)class. The chaining order with `Oodux.wrapMiddleware` does not matter.
 
 ```js
 State.applyMiddleware(mware).init()
 State.wrapMiddleware(reduxDevTools).applyMiddleware(mware).init()
 State.applyMiddleware(mware).wrapMiddleware(reduxDevTools).init()
-Cletus.applyMiddleware(mware).combineClasses(User, Products, Orders)
+Oodux.applyMiddleware(mware).initSlices(User, Products, Orders)
 ```
 
-#### Cletus.combineClasses(cletusSubclass1, cletusSubclass2[, ...[, cletusSubclassN]])
+#### Oodux.initSlices(OoduxSubclass1, OoduxSubclass2[, ...[, OoduxSubclassN]])
 
-Creates and combines the reducers on each Cletus subclass, applies and wraps any middleware passed in by `Cletus.applyMiddleware` and `Cletus.wrapMiddleware`, and creates and returns the store. This method also creates the action types, action creators, and dispatching static methods to correspond to each instance method on the cletusSubclasses, as well as magic methods and their corresponding action types, creators, and dispatchers based on the initial state of each class. The dispatching static methods are attached to the invoking class of this method, which makes all static dispatchers available to all subclasses. When calling this method, do not call `Cletus.init`.
+Creates and combines the reducers on each Oodux subclass, applies and wraps any middleware passed in by `Oodux.applyMiddleware` and `Oodux.wrapMiddleware`, and creates and returns the store. This method also creates the action types, action creators, and dispatching static methods to correspond to each instance method on the OoduxSubclasses, as well as magic methods and their corresponding action types, creators, and dispatchers based on the initial state of each class, and memoizes any getters on each subclass. The dispatching static methods are attached to the invoking class of this method, which makes all static dispatchers available to all subclasses. When calling this method, do not call `Oodux.init`.
 
 ```js
-Cletus.combineClasses(Dogs, Cats, PetStores)
+Oodux.initSlices(Dogs, Cats, PetStores)
 ```
 
-#### Cletus.init()
+#### Oodux.init()
 
-Creates the reducer, applies and wraps any middleware passed in by `Cletus.applyMiddleware` and `Cletus.wrapMiddleware`, and creates and returns the store. This method also creates the action types, action creators, and dispatching static methods to correspond to each instance method on the invoking Cletus subclass, as well as magic methods and their corresponding action types, creators, and dispatchers based on the initial state of the class. When calling this method, do not call `Cletus.combineClasses`.
+Creates the reducer, applies and wraps any middleware passed in by `Oodux.applyMiddleware` and `Oodux.wrapMiddleware`, and creates and returns the store. This method also creates the action types, action creators, and dispatching static methods to correspond to each instance method on the invoking Oodux subclass, as well as magic methods and their corresponding action types, creators, and dispatchers based on the initial state of the class, and memoizes any getters. When calling this method, do not call `Oodux.initSlices`.
 
 ```js
 export default State.applyMiddleware(createLogger({ collapsed: true })).init()
 ```
 
-#### Cletus.wrapMiddleware(middleware1[, ...[, middlewareN]])
+#### Oodux.wrapMiddleware(middleware1[, ...[, middlewareN]])
 
-Stores the provided middlewares on `Cletus.wrappingMiddlewares`, which are then composed (in the order passed in) with Redux's `applyMiddleware` by `Cletus.init` or `Cletus.combineClasses`. Returns the invoking Cletus (sub)class. The chaining order with `Cletus.wrapMiddleware` does not matter.
+Stores the provided middlewares on `Oodux.wrappingMiddlewares`, which are then composed (in the order passed in) with Redux's `applyMiddleware` by `Oodux.init` or `Oodux.initSlices`. Returns the invoking Oodux (sub)class. The chaining order with `Oodux.applyMiddleware` does not matter.
 
 ```js
 State.wrapMiddleware(reduxDevTools).init()
@@ -306,9 +350,9 @@ State.applyMiddleware(mware).wrapMiddleware(reduxDevTools).init()
 
 ### Other Static Methods
 
-#### Cletus.getState()
+#### Oodux.getState()
 
-Returns the current state. Just a shorthand for `Cletus.store.getState()`.
+Returns the current state. Just a shorthand for `Oodux.store.getState()`.
 
 ```js
 const currentState = this.getState()
@@ -316,9 +360,9 @@ const { students } = this.getState()
 const { id } = this.getState().user
 ```
 
-#### Cletus.from(obj)
+#### Oodux.from(obj)
 
-Creates a new state object by calling the invoking class's constructor, then copies the values of any keys shared by the state object and `obj` onto the state object. Note that if `obj` has keys which do not exist on the state object, they will not be copied onto the new state object. Equivalent to calling `new Cletus().update(obj)`.
+Creates a new state object by calling the invoking class's constructor, then copies the values of any keys shared by the state object and `obj` onto the state object. Note that if `obj` has keys which do not exist on the state object, they will not be copied onto the new state object. Equivalent to calling `new Oodux().update(obj)`.
 
 ```js
 loadNewUser(dataFromAxios){
@@ -332,7 +376,7 @@ const newState = State.from(wideBrush) //newState === {color: "white", thickness
 
 ### Instance Methods
 
-#### Cletus.prototype.add(obj)
+#### Oodux.prototype.add(obj)
 
 Creates `newState`, a copy of the invoking instance, then for each `key` in object, pushes the corresponding value onto `newState[key]`, then returns `newState`. When adding only to a single array on state, you may prefer to use the magic method for that array.
 
@@ -342,7 +386,7 @@ addNewProduct(product){
 }
 ```
 
-#### Cletus.prototype.copy()
+#### Oodux.prototype.copy()
 
 Returns a shallow copy of the invoking instance. This method is called by most other provided instance methods.
 
@@ -354,7 +398,7 @@ rotateDirections(){
 }
 ```
 
-#### Cletus.prototype.remove(obj)
+#### Oodux.prototype.remove(obj)
 
 Creates `newState`, a copy of the invoking instance, then for each `key` in object, removes the corresponding value from `newState[key]` (if it is present), then returns `newState`. When removing only from a single array on state, you may prefer to use the magic method for that array.
 
@@ -364,9 +408,9 @@ removeProduct(product){
 }
 ```
 
-#### Cletus.prototype.removeById(obj)
+#### Oodux.prototype.removeById(obj)
 
-Works just like `Cletus.prototype.remove` except that values on the input object are expected to be ids; removes the first element in each array that has the corresponding id.
+Works just like `Oodux.prototype.remove` except that values on the input object are expected to be ids; removes the first element in each array that has the corresponding id.
 
 ```js
 removeProduct(product){
@@ -374,7 +418,7 @@ removeProduct(product){
 }
 ```
 
-#### Cletus.prototype.update(obj)
+#### Oodux.prototype.update(obj)
 
 Creates a copy of the invoking instance, and then for all keys shared by the invoking instance and `obj`, the value of `obj` at that key is copied onto the new copy. Note that if `obj` has keys which do not exist on the state object, they will not be copied onto the new state object.
 
@@ -386,18 +430,18 @@ loadUser(userFromAxios){
 
 ### Magic Methods
 
-These methods are automatically created for every property on the initial state as defined in your Cletus subclass's constructor.
+These methods are automatically created for every property on the initial state as defined in your Oodux subclass's constructor.
 
-#### {CletusSubclass}.prototype.set{PropertyName}(value)
+#### Oodux.prototype.set{PropertyName}(value)
 
-#### {Cletus(Sub)class}.set{PropertyName}(value)
+#### Oodux.set{PropertyName}(value)
 
 Creates a copy of the invoking instance and updates `copy[PropertyName]` to have value `value`, and then returns the copy. This method is created for all properties on the state object.
 
 The corresponding static method dispatches the action called `set{PropertyName}`, which in turns calls the instance method on the current state object, and sets its return value as the new (slice of) state.
 
 ```js
-class State extends Cletus {
+class State extends Oodux {
 	constructor() {
 		this.count = 0
 	}
@@ -408,16 +452,16 @@ State.init()
 State.setCount(42) // this.store.getState().count === 42
 ```
 
-#### {CletusSubclass}.prototype.increment{NumericPropertyName}(value)
+#### Oodux.prototype.increment{NumericPropertyName}(value)
 
-#### {Cletus(Sub)class}.increment{NumericPropertyName}(value)
+#### Oodux.increment{NumericPropertyName}(value)
 
 Creates a copy of the invoking instance and updates `copy[NumericPropertyName]` to be `copy[NumericPropertyName] + value`, and then returns the copy. This method is created for all properties on the state object whose initial value is a number.
 
 The corresponding static method dispatches the action called `increment{NumericPropertyName}`, which in turns calls the instance method on the current state object, and sets its return value as the new (slice of) state.
 
 ```js
-class State extends Cletus {
+class State extends Oodux {
 	constructor() {
 		this.count = 21
 	}
@@ -428,16 +472,16 @@ State.init()
 State.incrementCount(21) // this.store.getState().count === 42
 ```
 
-#### {CletusSubclass}.prototype.toggle{BooleanPropertyName}()
+#### Oodux.prototype.toggle{BooleanPropertyName}()
 
-#### {Cletus(Sub)class}.toggle{BooleanPropertyName}()
+#### Oodux.toggle{BooleanPropertyName}()
 
 Creates a copy of the invoking instance and updates `copy[BooleanPropertyName]` to be `!copy[BooleanPropertyName]`, and then returns the copy. This method is created for all properties on the state object whose initial value is a boolean.
 
 The corresponding static method dispatches the action called `toggle{BooleanPropertyName}`, which in turns calls the instance method on the current state object, and sets its return value as the new (slice of) state.
 
 ```js
-class State extends Cletus {
+class State extends Oodux {
 	constructor() {
 		this.data = []
 		this.error = false
@@ -449,16 +493,16 @@ State.init()
 State.toggleError() // this.store.getState().error === true
 ```
 
-#### {CletusSubclass}.prototype.addTo{ArrayPropertyName}(value1[, ...[, valueN]])
+#### Oodux.prototype.addTo{ArrayPropertyName}(value1[, ...[, valueN]])
 
-#### {Cletus(Sub)class}.addTo{ArrayPropertyName}(value1[, ...[, valueN]])
+#### Oodux.addTo{ArrayPropertyName}(value1[, ...[, valueN]])
 
 Creates a copy of the invoking instance and updates `copy[ArrayPropertyName]` to be `copy[ArrayPropertyName].concat([value1, ..., valueN])`, and then returns the copy. This method is created for all properties on the state object whose initial value is an array.
 
 The corresponding static method dispatches the action called `addTo{ArrayPropertyName}`, which in turns calls the instance method on the current state object, and sets its return value as the new (slice of) state.
 
 ```js
-class State extends Cletus {
+class State extends Oodux {
 	constructor() {
 		this.data = [42]
 		this.error = false
@@ -470,16 +514,16 @@ State.init()
 State.addToData(34, 47, 52) // this.store.getState().data === [42, 34, 47, 52]
 ```
 
-#### {CletusSubclass}.prototype.removeFrom{ArrayPropertyName}(data)
+#### Oodux.prototype.removeFrom{ArrayPropertyName}(data)
 
-#### {CletusSubclass}.removeFrom{ArrayPropertyName}(data)
+#### Oodux.removeFrom{ArrayPropertyName}(data)
 
-Creates a copy of the invoking instance, with `data` removed from `copy[ArrayPropertyName]`. If `data` was not originally present the copy is identical. See also `{CletusSubclass}.prototype.removeFrom{ArrayPropertyName}ById`.
+Creates a copy of the invoking instance, with `data` removed from `copy[ArrayPropertyName]`. If `data` was not originally present the copy is identical. See also `Oodux.prototype.removeFrom{ArrayPropertyName}ById`.
 
 The corresponding static method dispatches the action called `removeFrom{ArrayPropertyName}`, which in turns calls the instance method on the current state object, and sets its return value as the new (slice of) state.
 
 ```js
-class State extends Cletus {
+class State extends Oodux {
 	constructor() {
 		this.data = []
 		this.error = false
@@ -497,16 +541,16 @@ State.setData([
 State.removeFromData(State.getState().data[1]) //this.store.getState().data === [{id:7, name:"squirtle"}, {id:4, name:"charmander"}]
 ```
 
-#### {CletusSubclass}.prototype.removeFrom{ArrayPropertyName}ById(id)
+#### Oodux.prototype.removeFrom{ArrayPropertyName}ById(id)
 
-#### {CletusSubclass}.removeFrom{ArrayPropertyName}ById(id)
+#### Oodux.removeFrom{ArrayPropertyName}ById(id)
 
-Creates a copy of the invoking instance, with the first element having id `id` removed from `copy[ArrayPropertyName]`. If no element has id `id` the copy is identical. See also `{CletusSubclass}.prototype.removeFrom{ArrayPropertyName}`.
+Creates a copy of the invoking instance, with the first element having id `id` removed from `copy[ArrayPropertyName]`. If no element has id `id` the copy is identical. See also `Oodux.prototype.removeFrom{ArrayPropertyName}`.
 
 The corresponding static method dispatches the action called `removeFrom{ArrayPropertyName}ById`, which in turns calls the instance method on the current state object, and sets its return value as the new (slice of) state.
 
 ```js
-class State extends Cletus {
+class State extends Oodux {
 	constructor() {
 		this.data = []
 		this.error = false
@@ -524,18 +568,18 @@ State.setData([
 State.removeFromDataById(1) //this.store.getState().data === [{id:7, name:"squirtle"}, {id:4, name:"charmander"}]
 ```
 
-#### {CletusSubclass}.prototype.update{ArrayPropertyName}({key, data})
+#### Oodux.prototype.update{ArrayPropertyName}({key, data})
 
-#### {CletusSubclass}.update{ArrayPropertyName}({key, data})
+#### Oodux.update{ArrayPropertyName}({key, data})
 
-Creates a copy of the invoking instance, with the array `copy[ArrayPropertyName]` modified so that `data` is swapped in for one of its elements. The element swapped out will be the first one in the array whose value at `key` is the same as that of `data`. If the key you wish to use is `"id"`, use `{CletusSubclass}.prototype.update{ArrayPropertyName}ById`.
+Creates a copy of the invoking instance, with the array `copy[ArrayPropertyName]` modified so that `data` is swapped in for one of its elements. The element swapped out will be the first one in the array whose value at `key` is the same as that of `data`. If the key you wish to use is `"id"`, use `Oodux.prototype.update{ArrayPropertyName}ById`.
 
 <!-- and swaps `data` with the first element `el` of `copy[ArrayPropertyName]` such that `el[key] === data[key` and then returns the copy. This method is created for all properties on the state object whose initial value is an array. -->
 
 The corresponding static method dispatches the action called `update{ArrayPropertyName}`, which in turns calls the instance method on the current state object, and sets its return value as the new (slice of) state.
 
 ```js
-class State extends Cletus {
+class State extends Oodux {
 	constructor() {
 		this.data = []
 		this.error = false
@@ -553,16 +597,16 @@ State.setData([
 State.updateData("name", { id: 5, name: "charmander" }) //this.store.getState().data === [{id:1, name:"bulbasaur"}, {id:7, name:"squirtle"}, {id:5, name:"charmander"}]
 ```
 
-#### {CletusSubclass}.prototype.update{ArrayPropertyName}ById(data)
+#### Oodux.prototype.update{ArrayPropertyName}ById(data)
 
-#### {CletusSubclass}.update{ArrayPropertyName}ById(data)
+#### Oodux.update{ArrayPropertyName}ById(data)
 
-Creates a copy of the invoking instance, with the array `copy[ArrayPropertyName]` modified so that `data` is swapped in for one of its elements. The element swapped out will be the first one in the array whose id is the same as that of `data`. If you wish to swap based on a key other than `"id"`, use `{CletusSubclass}.prototype.update{ArrayPropertyName}`.
+Creates a copy of the invoking instance, with the array `copy[ArrayPropertyName]` modified so that `data` is swapped in for one of its elements. The element swapped out will be the first one in the array whose id is the same as that of `data`. If you wish to swap based on a key other than `"id"`, use `Oodux.prototype.update{ArrayPropertyName}`.
 
 The corresponding static method dispatches the action called `update{ArrayPropertyName}ById`, which in turns calls the instance method on the current state object, and sets its return value as the new (slice of) state.
 
 ```js
-class State extends Cletus {
+class State extends Oodux {
 	constructor() {
 		this.data = []
 		this.error = false

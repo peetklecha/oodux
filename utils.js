@@ -1,12 +1,12 @@
 const excludedNames = new Set(["constructor", "length", "prototype", "name"])
 
-function methodName(prefix, fieldName) {
+export function methodName(prefix, fieldName) {
 	if (!fieldName) return prefix
 	fieldName = fieldName[0].toUpperCase() + fieldName.slice(1)
 	return prefix + fieldName
 }
 
-function allValidProperties(obj) {
+export function allValidProperties(obj) {
 	const properties = Object.getOwnPropertyDescriptors(obj)
 	return Object.keys(properties).filter(
 		name =>
@@ -14,7 +14,7 @@ function allValidProperties(obj) {
 	)
 }
 
-function allGetters(obj) {
+export function allGetters(obj) {
 	const descriptors = Object.getOwnPropertyDescriptors(obj)
 	return Object.entries(descriptors).filter(
 		([name, descriptor]) =>
@@ -22,4 +22,8 @@ function allGetters(obj) {
 	)
 }
 
-module.exports = { methodName, allValidProperties, allGetters }
+export function pascalToCamel(str) {
+	return str[0].toLowerCase() + str.slice(1)
+}
+
+// module.exports = { methodName, allValidProperties, allGetters }

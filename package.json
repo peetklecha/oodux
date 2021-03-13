@@ -1,13 +1,14 @@
 {
-	"name": "cletus",
+	"name": "oodux",
 	"version": "1.0.0",
-	"description": "A class-based Redux streamliner.",
+	"description": "An object oriented Redux wrapper.",
 	"main": "index.js",
 	"type": "module",
 	"directories": {
 		"example": "example"
 	},
 	"dependencies": {
+		"jest": "^26.6.3",
 		"redux": "^4.0.5"
 	},
 	"bundleDependencies": false,
@@ -16,7 +17,7 @@
 		"mocha": "^7.2.0"
 	},
 	"scripts": {
-		"test": "NODE_ENV='test' mocha cletus.spec.js -w "
+		"test": "node --experimental-vm-modules node_modules/.bin/jest"
 	},
 	"repository": {
 		"type": "git",

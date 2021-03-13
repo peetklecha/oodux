@@ -1,6 +1,6 @@
-import Cletus from ".."
+import Oodux from ".."
 
-export class State extends Cletus {
+export class State extends Oodux {
 	constructor() {
 		super()
 		this.user = {}
@@ -76,7 +76,7 @@ export class State extends Cletus {
 		)
 	}
 
-	//reducer
+	//"reducer"
 	removeUser() {
 		//overwrites default removeUser behavior
 		return new State()

@@ -1,136 +1,127 @@
-/* eslint-disable guard-for-in */
-const { createStore, applyMiddleware, combineReducers } = require("redux")
-const { methodName, allValidProperties, allGetters } = require("./utils")
+import { createStore, applyMiddleware, combineReducers } from "redux"
+import {
+	methodName,
+	allValidProperties,
+	allGetters,
+	pascalToCamel,
+} from "./utils.js"
+import ImmutableState from "./immutable.js"
 
-class Cletus {
-	static __getters = null
-	static __makeReducer(topLevelClass) {
-		if (this === Cletus) throw new Error("Failed to subclass Cletus.")
-
-		this.topLevelClass = topLevelClass || this
-		if (topLevelClass) {
-			const userStatics = allValidProperties(this)
-			this.__shareStatics(userStatics)
-		}
-
-		this.creators = {}
-		const userTypes = allValidProperties(this.prototype)
-
-		const initialState = new this()
-		const fields = Object.entries(initialState)
-		this.__tryToMakeDefaultMethods("clear", "", function () {
-			return new this.constructor()
-		})
-		for (const entry of fields) this.__makeDefaultMethods(entry)
-
-		userTypes.forEach(type =>
-			this.topLevelClass.__makeUserMethods(type, this.prototype[type].length)
-		)
-		this.topLevelClass.__memoizeGetters(this.prototype)
-
-		// userGetters.forEach(getter => this.topLevelClass.__memoizeGetter(getter))
-
-		this.__reducer = (state = initialState, action) => {
-			if (state[action.type]) return state[action.type](action.data)
-			return state
-		}
-		return this.__reducer
+export default class Oodux extends ImmutableState {
+	static __init(topLevelClass) {
+		if (this === Oodux) throw new Error("Failed to subclass Oodux.")
+		this.__creators = {}
+		this.__syncClasses(topLevelClass)
+		this.__makeUserMethods()
+		this.__makeDefaultMethods()
+		this.__memoizeGetters()
+		this.__reducer = this.__reducer.bind(this)
 	}
 
-	static __makeUserMethods(type, numberOfArgs) {
-		numberOfArgs = Math.max(
-			numberOfArgs,
-			this.creators[type] ? this.creators[type].length : 0
-		)
-		this.__makeCreator(type, numberOfArgs)
-		this.__makeDispatcher(type, numberOfArgs)
+	static __reducer(state, action) {
+		state = state || new this()
+		if (state[action.type]) return state[action.type](action.data)
+		return state
+	}
+
+	static __makeUserMethods() {
+		const cls = this.__topLevelClass
+		for (const type of allValidProperties(this.prototype)) {
+			const numberOfArgs = Math.max(
+				this.prototype[type].length,
+				cls.__creators[type] ? cls.__creators[type].length : 0
+			)
+			cls.__makeCreator(type, numberOfArgs)
+			cls.__makeDispatcher(type, numberOfArgs)
+		}
 	}
 
 	static __makeCreator(type, args) {
 		if (args > 1)
 			throw new Error("Reducer methods should take at most one argument.")
-		else if (args > 0) this.creators[type] = data => ({ type, data })
-		else this.creators[type] = () => ({ type })
+		else if (args > 0) this.__creators[type] = data => ({ type, data })
+		else this.__creators[type] = () => ({ type })
 	}
 
 	static __makeDispatcher(type, args) {
 		if (args === 1)
 			this[type] = data => {
-				this.store.dispatch(this.creators[type](data))
+				this.store.dispatch(this.__creators[type](data))
 			}
 		else
 			this[type] = () => {
-				this.store.dispatch(this.creators[type]())
+				this.store.dispatch(this.__creators[type]())
 			}
 	}
 
-	static __memoizeGetters(prototype) {
-		for (const [getterKey, descriptor] of allGetters(prototype)) {
-			const _this = this
-			this.__getters = this.__getters || {}
-			const proxy = new Proxy(
-				{},
-				{
-					get(_, stateKey) {
-						const value = _this.getState()[stateKey]
-						_this.__getters[getterKey].memo[stateKey] = value
-						return value
-					},
-				}
-			)
-			this.__getters[getterKey] = {
-				userGetter: descriptor.get.bind(proxy),
-				memo: {},
-				derivedValue: null,
-				used: false,
-			}
-			Object.defineProperty(prototype, getterKey, {
-				get() {
-					const info = _this.__getters[getterKey]
-					const state = _this.getState()
-					const entries = Object.entries(info.memo)
-					if (
-						!info.used ||
-						!entries.all(([key, value]) => state[key] === value)
-					) {
-						info.memo = {}
-						const value = info.userGetter()
-						info.derivedValue = value
-					}
-					info.used = true
-					return info.derivedValue
+	static __createGetterMemo(getterKey, descriptor) {
+		const userGetter = descriptor.get.bind(
+			new Proxy(this, {
+				get(target, stateKey) {
+					const value = target.getSlice()[stateKey]
+					target.__getters[getterKey].memo[stateKey] = value
+					return value
 				},
 			})
+		)
+		this.__getters[getterKey] = {
+			userGetter,
+			memo: {},
+			derivedValue: null,
+			used: false,
 		}
 	}
 
-	static __shareStatics(userStatics) {
-		userStatics.forEach(method => (this.topLevelClass[method] = this[method]))
+	static __overrideUserGetter(prototype, getterKey) {
+		Object.defineProperty(prototype, getterKey, {
+			get: () => {
+				const info = this.__getters[getterKey]
+				const state = this.getSlice()
+				const memos = Object.entries(info.memo)
+				if (
+					!info.used ||
+					!memos.every(([key, value]) => state[key] === value)
+				) {
+					info.memo = {}
+					info.derivedValue = info.userGetter()
+					info.used = true
+				}
+				return info.derivedValue
+			},
+		})
+	}
+
+	static __memoizeGetters() {
+		const getters = allGetters(this.prototype)
+		if (getters.length) this.__getters = this.__getters || {}
+		for (const [getterKey, descriptor] of getters) {
+			this.__createGetterMemo(getterKey, descriptor)
+			this.__overrideUserGetter(this.prototype, getterKey)
+		}
+	}
+
+	static __syncClasses(topLevelClass) {
+		this.__topLevelClass = topLevelClass || this
+		if (topLevelClass)
+			for (const method of allValidProperties(this)) {
+				this.__topLevelClass[method] = this[method]
+			}
 	}
 
 	static __tryToMakeDefaultMethods(prefix, key, callback, suffix = "") {
 		const name = methodName(prefix, key) + suffix
-		const tlc = this.topLevelClass
+		const tlc = this.__topLevelClass
 		if (!this.prototype[name]) {
 			this.prototype[name] = function (arg) {
-				return callback.bind(this)(arg)
+				return callback.call(this, arg)
 			}
-			if (name in tlc.creators) {
-				tlc.creators[name] = null
+			if (name in tlc.__creators) {
+				tlc.__creators[name] = null
 				tlc[name] = this.__warnCompetingDefaultMethods(name)
 			} else {
 				tlc.__makeCreator(name, callback.length)
 				tlc.__makeDispatcher(name, callback.length)
-				if (tlc.creatorSources) tlc.creatorSources[name] = this
 			}
-		}
-	}
-
-	static __warnOverloadedStaticMethod(name) {
-		return () => {
-			throw new Error(
-				`Method ${name} is defined on multiple Cletus subclasses; you must invoke the method you want from the corresponding subclass directly.`
-			)
 		}
 	}
 
@@ -142,54 +133,63 @@ class Cletus {
 		}
 	}
 
-	static __makeDefaultMethods([_key, value]) {
-		this.__tryToMakeDefaultMethods("set", _key, function (data) {
-			return this.update({ [_key]: data })
-		})
-
-		if (typeof value === "boolean") {
-			this.__tryToMakeDefaultMethods("toggle", _key, function () {
-				return this.update({ [_key]: !this[_key] })
-			})
-		} else if (typeof value === "number") {
-			this.__tryToMakeDefaultMethods("increment", _key, function (num) {
-				return this.update({ [_key]: this[_key] + num })
-			})
-		} else if (typeof value === "object") {
-			if (value.constructor === Array) {
-				this.__tryToMakeDefaultMethods("addTo", _key, function (arr) {
-					const newState = this.copy()
-					newState[_key] = [...newState[_key], ...arr]
-					return newState
-				})
-				this.__tryToMakeDefaultMethods(
-					"update",
-					_key,
-					function ({ key, data }) {
-						return this.updateBy(key, { [_key]: data })
-					}
-				)
-				this.__tryToMakeDefaultMethods(
-					"update",
-					_key,
-					function (obj) {
-						return this.updateById({ [_key]: obj })
-					},
-					"ById"
-				)
-				this.__tryToMakeDefaultMethods("removeFrom", _key, function (data) {
-					return this.remove({ [key]: data })
-				})
-				this.__tryToMakeDefaultMethods(
-					"removeFrom",
-					_key,
-					function (id) {
-						return this.removeById({ [_key]: id })
-					},
-					"ById"
-				)
+	static __makeDefaultMethods() {
+		for (const [key, value] of Object.entries(new this())) {
+			this.__makeUniversalDefaultMethods(key)
+			if (typeof value === "boolean") this.__makeBooleanDefaultMethods(key)
+			else if (typeof value === "number") this.__makeNumberDefaultMethods(key)
+			else if (typeof value === "object") {
+				if (Array.isArray(value)) this.__makeArrayDefaultMethods(key)
 			}
 		}
+	}
+
+	static __makeUniversalDefaultMethods(key) {
+		this.__tryToMakeDefaultMethods("set", key, function (data) {
+			return this.update({ [key]: data })
+		})
+	}
+
+	static __makeBooleanDefaultMethods(key) {
+		this.__tryToMakeDefaultMethods("toggle", key, function () {
+			return this.update({ [key]: !this[key] })
+		})
+	}
+
+	static __makeNumberDefaultMethods(key) {
+		this.__tryToMakeDefaultMethods("increment", key, function (num) {
+			return this.update({ [key]: this[key] + num })
+		})
+	}
+
+	static __makeArrayDefaultMethods(_key) {
+		this.__tryToMakeDefaultMethods("addTo", _key, function (arr) {
+			const newState = this.copy()
+			newState[_key] = [...newState[_key], ...arr]
+			return newState
+		})
+		this.__tryToMakeDefaultMethods("update", _key, function ({ key, data }) {
+			return this.updateBy(key, { [_key]: data })
+		})
+		this.__tryToMakeDefaultMethods(
+			"update",
+			_key,
+			function (obj) {
+				return this.updateById({ [_key]: obj })
+			},
+			"ById"
+		)
+		this.__tryToMakeDefaultMethods("removeFrom", _key, function (data) {
+			return this.remove({ [_key]: data })
+		})
+		this.__tryToMakeDefaultMethods(
+			"removeFrom",
+			_key,
+			function (id) {
+				return this.removeById({ [_key]: id })
+			},
+			"ById"
+		)
 	}
 
 	static wrapMiddleware(...middlewares) {
@@ -213,22 +213,24 @@ class Cletus {
 	static init() {
 		if (this.store)
 			throw new Error(
-				"Store has already been initialized. If using combineClasses, do not call Cletus.init."
+				"Store has already been initialized. If using initSlices, do not call Oodux.init."
 			)
-		this.store = createStore(this.__makeReducer(), this.__makeMiddleware())
+		this.__slices = false
+
+		this.__init()
+		this.store = createStore(this.__reducer, this.__makeMiddleware())
 		return this.store
 	}
 
-	static combineClasses(...classes) {
-		this.creators = {}
-		this.creatorSources = {}
-		const reducers = classes.reduce(
-			(obj, cls) => ({
-				...obj,
-				[cls.name.toLowerCase()]: cls.__makeReducer(this),
-			}),
-			{}
-		)
+	static initSlices(...classes) {
+		this.__creators = {}
+		this.__slices = true
+
+		const reducers = {}
+		for (const cls of classes) {
+			cls.__init(this)
+			reducers[pascalToCamel(cls.name)] = cls.__reducer
+		}
 		this.store = createStore(combineReducers(reducers), this.__makeMiddleware())
 		return this.store
 	}
@@ -237,101 +239,14 @@ class Cletus {
 		return this.store.getState()
 	}
 
-	__imitate(obj) {
-		for (let key of Object.keys(obj)) {
-			this[key] = obj[key]
-		}
-		return this
-	}
-
-	__imitateExistingProps(obj) {
-		for (let key of Object.keys(this)) {
-			if (key in obj) this[key] = obj[key]
-		}
-		return this
-	}
-
-	copy() {
-		const output = new this.constructor()
-		output.__imitate(this)
-		return output
-	}
-
-	static from(obj) {
-		return new this().__imitateExistingProps(obj)
-	}
-
-	update(obj) {
-		const copy = this.copy()
-		const output = copy.__imitateExistingProps(obj)
-		return output
-	}
-
-	add(obj) {
-		const that = this.copy()
-		for (let key in obj) {
-			that[key] = [...that[key], obj[key]]
-		}
-		return that
-	}
-
-	remove(obj) {
-		const that = this.copy()
-		for (let key in obj) {
-			that[key] = that[key].filter(elem => elem !== obj[key])
-		}
-		return that
-	}
-
-	removeById(obj) {
-		const that = this.copy()
-		for (let key in obj) {
-			that[key] = that[key].filter(elem => elem.id !== obj[key])
-		}
-	}
-
-	updateById(obj) {
-		const that = this.copy()
-		for (let key in obj) {
-			that[key] = that[key].map(elem => {
-				if (obj[key].id === elem.id) {
-					const newElem = Object.create(elem)
-					for (let key_ in obj[key]) {
-						newElem[key_] = obj[key][key_]
-					}
-					return newElem
-				} else return elem
-			})
-		}
-		return that
-	}
-
-	updateBy(key, obj) {
-		const that = this.copy()
-		for (let field in obj) {
-			that[field] = that[field].map(elem => {
-				if (obj[field][key] === elem[key]) {
-					const newElem = Object.create(elem)
-					for (let key_ in obj[field]) {
-						newElem[key_] = obj[field][key_]
-					}
-					return newElem
-				} else return elem
-			})
-		}
-		return that
-	}
-
-	updateAll(obj) {
-		const that = this.copy()
-		for (let key in obj) {
-			that[key] = that[key].map(elem => obj[key]({ ...elem }))
-		}
-		return that
+	static getSlice() {
+		return this.__slices
+			? this.store.getState()[pascalToCamel(this.name)]
+			: this.store.getState()
 	}
 }
 
-Cletus.middleware = []
-Cletus.wrappingMiddleware = []
-Cletus.topLevelClass = Cletus
-module.exports = Cletus
+Oodux.middleware = []
+Oodux.wrappingMiddleware = []
+Oodux.__topLevelClass = Oodux
+Oodux.__getters = null

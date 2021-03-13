@@ -4,7 +4,7 @@ import {
 	toggleView,
 	selectPet,
 	selectRandomPet,
-} from "./example/storeWithoutCletus"
+} from "./example/storeWithoutOodux"
 
 const PetsView = ({
 	user,
