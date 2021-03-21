@@ -1,12 +1,12 @@
 const excludedNames = new Set(["constructor", "length", "prototype", "name"])
 
-export function methodName(prefix, fieldName) {
+function methodName(prefix, fieldName) {
 	if (!fieldName) return prefix
 	fieldName = fieldName[0].toUpperCase() + fieldName.slice(1)
-	return prefix + fieldName
+	return typeof prefix === "string" ? prefix + fieldName : prefix(fieldName)
 }
 
-export function allValidProperties(obj) {
+function allValidProperties(obj) {
 	const properties = Object.getOwnPropertyDescriptors(obj)
 	return Object.keys(properties).filter(
 		name =>
@@ -14,7 +14,7 @@ export function allValidProperties(obj) {
 	)
 }
 
-export function allGetters(obj) {
+function allGetters(obj) {
 	const descriptors = Object.getOwnPropertyDescriptors(obj)
 	return Object.entries(descriptors).filter(
 		([name, descriptor]) =>
@@ -22,8 +22,22 @@ export function allGetters(obj) {
 	)
 }
 
-export function pascalToCamel(str) {
+function pascalToCamel(str) {
 	return str[0].toLowerCase() + str.slice(1)
 }
 
-// module.exports = { methodName, allValidProperties, allGetters }
+function competingDefaultMethods(name) {
+	return () => {
+		throw new Error(
+			`The action type ${name} could not be automatically created because multiple state-slices have the same property name. Instance methods for these state-slices are still available. `
+		)
+	}
+}
+
+module.exports = {
+	methodName,
+	allValidProperties,
+	allGetters,
+	pascalToCamel,
+	competingDefaultMethods,
+}

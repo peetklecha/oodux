@@ -3,7 +3,6 @@
 	"version": "1.0.0",
 	"description": "An object oriented Redux wrapper.",
 	"main": "index.js",
-	"type": "module",
 	"directories": {
 		"example": "example"
 	},

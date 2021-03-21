@@ -126,28 +126,6 @@ Note that the current state is also accessible from your Oodux subclass by calli
 
 If you are using multiple reducers, and wish to keep your async actions in a separate file from your reducers, you can put them on the parent class; see Multiple Reducers below.
 
-<!-- When creating static methods on an Oodux subclass, you may want to use static fields and arrow notation so that these methods are automatically bound. This may make exporting and importing them easier if many different modules need to make use of many such methods. For example, the following:
-
-```js
-//store.js
-export default class State extends Oodux {
-	static async fetchData(data) {
-		//...
-	}
-}
-
-//component.js
-
-import State from "./store.js"
-
-export default props => <button onClick={State.fetchData(props.id)}>
-
-```
-
-Could instead look like this:
-
--->
-
 ### React-Redux
 
 When using React-Redux, Oodux often eliminates the need to use mapDispatchToProps.
@@ -181,7 +159,7 @@ Note that instead of importing the whole State class, we could also add lines to
 export const { deletePet, toggleView } = State
 ```
 
-When creating custom static async methods, it suggested that these should use static field and arrow notation to allow for easy export.
+When creating custom static async methods, it suggested that these should use static field and arrow notation to allow for easy export without the need to manually bind.
 
 ```js
 //store.js
@@ -268,9 +246,11 @@ Oodux supports the multiple reducers pattern seen in Redux. In order to do this,
 export default Oodux.initSlices(Users, Pets, Parks)
 ```
 
-This will create a state object whose keys are camel cased versions of the names of the relevant subclasses. Note that parent class is not included in the state object, so there is no point in defining a constructor on the parent class.
+This will create a state object whose keys are camel-cased versions of the names of the relevant subclasses. Note that parent class is not included in the state object, so there is no point in defining a constructor on the parent class.
 
 It may still be worthwhile to define a custom parent class instead of using Oodux for the following reasons: 1) you may wish to create utility methods which are available to all subclasses (note that these do not need to be prefixed with an underscore, because Oodux will not try to make action creators for methods on the parent class); 2) you may wish to put some or all of your async actions on your parent class as a way to organize your redux logic.
+
+The static method `getSlice()` returns the current state of the slice corresponding to the calling class.
 
 If you want to make multiple reducers react to the same action type just give each class an instance method by the same name.
 
@@ -291,9 +271,9 @@ class Cart extends Oodux {
 
 ```
 
-In the above example, we want to clear out our application state when the user logs out, so when the action `"removeUser"` is dispatched, both of the above reducing methods and invoked, return a state whose `user` and `cart` slices have been returned to their initial setting.
+In the above example, we want to clear out our application state when the user logs out, so when the action `"removeUser"` is dispatched, both of the above reducing methods are invoked, returning a state whose `user` and `cart` slices have been returned to their initial setting.
 
-By default, all automatically created actions and dispatching methods are attached to the parent class so that they are accessible from any child class. This means, for instance, that an async action defined one class can dispatch actions defined in any of the other classes. Automatically created magic reducing methods are attached to the prototype of the relevant subclass, but their corresponding action creators and dispatchers go to the parent class.
+By default, all automatically created actions and dispatching methods are attached to the parent class so that they are accessible from any child class. This means, for instance, that an async action defined in one class can dispatch actions defined in any of the other classes. Automatically created magic reducing methods are attached to the prototype of the relevant subclass, but their corresponding action creators and dispatchers go to the parent class.
 
 Note that if two or more state slices have properties of the same name, the magic reducing methods will still be created, but no action creators or disaptchers will be created.
 
@@ -358,6 +338,24 @@ Returns the current state. Just a shorthand for `Oodux.store.getState()`.
 const currentState = this.getState()
 const { students } = this.getState()
 const { id } = this.getState().user
+```
+
+#### Oodux.getSlice()
+
+Returns the current state for the calling class's slice. If not using multiple reducers, this is equivalent to `getState`.
+
+```js
+class Pets extends Oodux {
+	static async getPets() {
+		try {
+			const { favorites } = this.getSlice() //same as this.getState().pets
+			const { data } = await axios.get(`/api/pets/${favorites[0].id}`)
+			this.setPets(data)
+		} catch (error) {
+			this.setError(error)
+		}
+	}
+}
 ```
 
 #### Oodux.from(obj)

@@ -1,16 +1,18 @@
-import { createStore, applyMiddleware, combineReducers } from "redux"
-import {
+const { createStore, applyMiddleware, combineReducers } = require("redux")
+const {
 	methodName,
 	allValidProperties,
 	allGetters,
 	pascalToCamel,
-} from "./utils.js"
-import ImmutableState from "./immutable.js"
+	competingDefaultMethods,
+} = require("./utils.js")
+const ImmutableState = require("./immutable.js")
 
-export default class Oodux extends ImmutableState {
+class Oodux extends ImmutableState {
 	static __init(topLevelClass) {
 		if (this === Oodux) throw new Error("Failed to subclass Oodux.")
 		this.__creators = {}
+		this.__initialState = new this()
 		this.__syncClasses(topLevelClass)
 		this.__makeUserMethods()
 		this.__makeDefaultMethods()
@@ -19,7 +21,7 @@ export default class Oodux extends ImmutableState {
 	}
 
 	static __reducer(state, action) {
-		state = state || new this()
+		state = state || this.__initialState
 		if (state[action.type]) return state[action.type](action.data)
 		return state
 	}
@@ -39,19 +41,19 @@ export default class Oodux extends ImmutableState {
 	static __makeCreator(type, args) {
 		if (args > 1)
 			throw new Error("Reducer methods should take at most one argument.")
-		else if (args > 0) this.__creators[type] = data => ({ type, data })
-		else this.__creators[type] = () => ({ type })
+		this.__creators[type] =
+			args === 1 ? data => ({ type, data }) : () => ({ type })
 	}
 
 	static __makeDispatcher(type, args) {
-		if (args === 1)
-			this[type] = data => {
-				this.store.dispatch(this.__creators[type](data))
-			}
-		else
-			this[type] = () => {
-				this.store.dispatch(this.__creators[type]())
-			}
+		this[type] =
+			args === 1
+				? data => {
+						this.store.dispatch(this.__creators[type](data))
+				  }
+				: () => {
+						this.store.dispatch(this.__creators[type]())
+				  }
 	}
 
 	static __createGetterMemo(getterKey, descriptor) {
@@ -59,15 +61,15 @@ export default class Oodux extends ImmutableState {
 			new Proxy(this, {
 				get(target, stateKey) {
 					const value = target.getSlice()[stateKey]
-					target.__getters[getterKey].memo[stateKey] = value
+					target.__getters[getterKey].componentValues[stateKey] = value
 					return value
 				},
 			})
 		)
 		this.__getters[getterKey] = {
 			userGetter,
-			memo: {},
-			derivedValue: null,
+			componentValues: {},
+			targetValue: null,
 			used: false,
 		}
 	}
@@ -75,18 +77,18 @@ export default class Oodux extends ImmutableState {
 	static __overrideUserGetter(prototype, getterKey) {
 		Object.defineProperty(prototype, getterKey, {
 			get: () => {
-				const info = this.__getters[getterKey]
+				const memo = this.__getters[getterKey]
 				const state = this.getSlice()
-				const memos = Object.entries(info.memo)
+				const values = Object.entries(memo.componentValues)
 				if (
-					!info.used ||
-					!memos.every(([key, value]) => state[key] === value)
+					!memo.used ||
+					!values.every(([key, value]) => state[key] === value)
 				) {
-					info.memo = {}
-					info.derivedValue = info.userGetter()
-					info.used = true
+					memo.componentValues = {}
+					memo.targetValue = memo.userGetter()
+					memo.used = true
 				}
-				return info.derivedValue
+				return memo.targetValue
 			},
 		})
 	}
@@ -108,8 +110,8 @@ export default class Oodux extends ImmutableState {
 			}
 	}
 
-	static __tryToMakeDefaultMethods(prefix, key, callback, suffix = "") {
-		const name = methodName(prefix, key) + suffix
+	static __tryToMakeDefaultMethods(prefix, key, callback) {
+		const name = methodName(prefix, key)
 		const tlc = this.__topLevelClass
 		if (!this.prototype[name]) {
 			this.prototype[name] = function (arg) {
@@ -117,7 +119,7 @@ export default class Oodux extends ImmutableState {
 			}
 			if (name in tlc.__creators) {
 				tlc.__creators[name] = null
-				tlc[name] = this.__warnCompetingDefaultMethods(name)
+				tlc[name] = competingDefaultMethods(name)
 			} else {
 				tlc.__makeCreator(name, callback.length)
 				tlc.__makeDispatcher(name, callback.length)
@@ -125,16 +127,8 @@ export default class Oodux extends ImmutableState {
 		}
 	}
 
-	static __warnCompetingDefaultMethods(name) {
-		return () => {
-			throw new Error(
-				`The action type ${name} could not be automatically created because multiple state-slices have the same property name. Instance methods for these state-slices are still available. `
-			)
-		}
-	}
-
 	static __makeDefaultMethods() {
-		for (const [key, value] of Object.entries(new this())) {
+		for (const [key, value] of Object.entries(this.__initialState)) {
 			this.__makeUniversalDefaultMethods(key)
 			if (typeof value === "boolean") this.__makeBooleanDefaultMethods(key)
 			else if (typeof value === "number") this.__makeNumberDefaultMethods(key)
@@ -147,6 +141,10 @@ export default class Oodux extends ImmutableState {
 	static __makeUniversalDefaultMethods(key) {
 		this.__tryToMakeDefaultMethods("set", key, function (data) {
 			return this.update({ [key]: data })
+		})
+		const defaultValue = this.__initialState[key]
+		this.__tryToMakeDefaultMethods("clear", key, function () {
+			return this.update({ [key]: defaultValue })
 		})
 	}
 
@@ -172,23 +170,21 @@ export default class Oodux extends ImmutableState {
 			return this.updateBy(key, { [_key]: data })
 		})
 		this.__tryToMakeDefaultMethods(
-			"update",
+			k => `update${k}ById`,
 			_key,
 			function (obj) {
 				return this.updateById({ [_key]: obj })
-			},
-			"ById"
+			}
 		)
 		this.__tryToMakeDefaultMethods("removeFrom", _key, function (data) {
 			return this.remove({ [_key]: data })
 		})
 		this.__tryToMakeDefaultMethods(
-			"removeFrom",
+			k => `removeFrom${k}ById`,
 			_key,
 			function (id) {
 				return this.removeById({ [_key]: id })
-			},
-			"ById"
+			}
 		)
 	}
 
@@ -250,3 +246,5 @@ Oodux.middleware = []
 Oodux.wrappingMiddleware = []
 Oodux.__topLevelClass = Oodux
 Oodux.__getters = null
+
+module.exports = Oodux

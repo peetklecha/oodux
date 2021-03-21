@@ -1,13 +1,10 @@
-export default class ImmutableState {
+module.exports = class ImmutableState {
 	clear() {
 		return new this.constructor()
 	}
 
 	__imitate(obj) {
-		for (const [key, value] of Object.entries(obj)) {
-			this[key] = value
-		}
-		return this
+		return this.__map(obj, (_, value) => value, this)
 	}
 
 	__imitateExistingProps(obj) {
@@ -15,6 +12,14 @@ export default class ImmutableState {
 			if (key in obj) this[key] = obj[key]
 		}
 		return this
+	}
+
+	__map(obj, callback, output) {
+		output = output || this.copy()
+		for (const [key, value] of Object.entries(obj)) {
+			output[key] = callback(output[key], value)
+		}
+		return output
 	}
 
 	copy() {
@@ -34,27 +39,21 @@ export default class ImmutableState {
 	}
 
 	add(obj) {
-		const output = this.copy()
-		for (const key in obj) {
-			output[key] = [...output[key], obj[key]]
-		}
-		return output
+		return this.__map(obj, (base, value) => [...base, value])
 	}
 
 	remove(obj) {
-		const output = this.copy()
-		for (const key in obj) {
-			output[key] = output[key].filter(elem => elem !== obj[key])
-		}
-		return output
+		return this.__map(obj, (base, value) => base.filter(elem => elem !== value))
+	}
+
+	removeBy(key, obj) {
+		return this.__map(obj, (base, value) =>
+			base.filter(elem => elem[key] !== value)
+		)
 	}
 
 	removeById(obj) {
-		const output = this.copy()
-		for (const key in obj) {
-			output[key] = output[key].filter(elem => elem.id !== obj[key])
-		}
-		return output
+		return this.removeBy("id", obj)
 	}
 
 	updateById(obj) {
@@ -62,33 +61,22 @@ export default class ImmutableState {
 	}
 
 	updateBy(idKey, obj) {
-		const output = this.copy()
-		for (const key in obj) {
-			output[key] = output[key].map(elem => {
-				if (obj[key][idKey] === elem[idKey]) {
+		return this.__map(obj, (base, value) =>
+			base.map(elem => {
+				if (value[idKey] === elem[idKey]) {
 					const newElem = Object.create(elem)
-					for (const elemKey in obj[key]) {
-						newElem[elemKey] = obj[key][elemKey]
+					for (const elemKey in value) {
+						newElem[elemKey] = value[elemKey]
 					}
 					return newElem
 				} else return elem
 			})
-		}
-		return output
+		)
 	}
 
 	updateAll(obj) {
-		const output = this.copy()
-		for (const key in obj) {
-			output[key] = output[key].map(elem => obj[key]({ ...elem }))
-		}
-		return output
+		return this.__map(obj, (base, value) =>
+			base.map(elem => value({ ...elem }))
+		)
 	}
-}
-
-function mapToObj(obj, callback, initialValue = {}) {
-	for (const key in obj) {
-		initialValue[key] = callback(key, initialValue, obj)
-	}
-	return initialValue
 }
