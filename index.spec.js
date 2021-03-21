@@ -1,5 +1,5 @@
-import { beforeEach, describe, it, expect } from "@jest/globals"
-import _Oodux from "./index.js"
+const { beforeEach, describe, it, expect } = require("@jest/globals")
+const _Oodux = require("./index.js")
 
 class Oodux extends _Oodux {}
 class State extends Oodux {
