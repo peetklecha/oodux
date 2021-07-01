@@ -218,14 +218,14 @@ class Oodux extends ImmutableState {
 		return this.store
 	}
 
-	static initSlices(...classes) {
+	static initSlices(classesObject) {
 		this.__creators = {}
 		this.__slices = true
 
 		const reducers = {}
-		for (const cls of classes) {
+		for (const [key, cls] of Object.entries(classesObject)) {
 			cls.__init(this)
-			reducers[pascalToCamel(cls.name)] = cls.__reducer
+			reducers[pascalToCamel(key)] = cls.__reducer
 		}
 		this.store = createStore(combineReducers(reducers), this.__makeMiddleware())
 		return this.store
