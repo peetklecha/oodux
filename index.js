@@ -146,6 +146,11 @@ class Oodux extends ImmutableState {
 		this.__tryToMakeDefaultMethods("clear", key, function () {
 			return this.update({ [key]: defaultValue })
 		})
+		const tlc = this.__topLevelClass
+		if (!tlc.clear) {
+			tlc.__makeCreator("clear", 0)
+			tlc.__makeDispatcher("clear", 0)
+		}
 	}
 
 	static __makeBooleanDefaultMethods(key) {
@@ -188,6 +193,19 @@ class Oodux extends ImmutableState {
 		)
 	}
 
+	static __makeTopLevelDefaultMethods(key, cls) {
+		cls.prototype[`set${key}`] = function (obj) {
+			return this.update(obj)
+		}
+		this.__makeCreator(`set${key}`, 1)
+		this.__makeDispatcher(`set${key}`, 1)
+		cls.prototype[`clear${key}`] = function () {
+			return new cls()
+		}
+		this.__makeCreator(`clear${key}`, 0)
+		this.__makeDispatcher(`clear${key}`, 0)
+	}
+
 	static wrapMiddleware(...middlewares) {
 		this.wrappingMiddleware = middlewares
 		return this
@@ -226,6 +244,7 @@ class Oodux extends ImmutableState {
 		for (const [key, cls] of Object.entries(classesObject)) {
 			cls.__init(this)
 			reducers[pascalToCamel(key)] = cls.__reducer
+			this.__makeTopLevelDefaultMethods(key, cls)
 		}
 		this.store = createStore(combineReducers(reducers), this.__makeMiddleware())
 		return this.store
@@ -240,6 +259,10 @@ class Oodux extends ImmutableState {
 			? this.store.getState()[pascalToCamel(this.name)]
 			: this.store.getState()
 	}
+
+	// static clear() {
+	// 	this.store.dispatch({ type: "clear" })
+	// }
 }
 
 Oodux.middleware = []

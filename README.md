@@ -42,8 +42,8 @@ case ADD_PRODUCT:
 
 ```js
 
-addProduct({product, coupon}){
-	return this.add({products: product, coupons: coupon})
+addProduct({ product, coupon }){
+	return this.add({ products: product, coupons: coupon })
 }
 
 ```
@@ -57,11 +57,11 @@ The action type will be equal to the name of the method. Any instance method wit
 So by creating the instance method seen above, you also get the following for free:
 
 ```js
-State.__creators.addProduct // === data => ({type:"addProduct", data})
-State.addProduct // === data => dispatch(State.creators.addProduct(data))
+State.__creators.addProduct // === data => ({ type: "addProduct", data })
+State.addProduct // === data => dispatch(State.__creators.addProduct(data))
 ```
 
-Oodux also creates a reducer for you which takes in the action, checks whether there is an instance method by the same name, and if there is, invokes it on the action's payload. If no method matches the action's type, it returns the current state; there is no need to write a method to handle default cases.
+Oodux also creates a reducer for you which takes in the action, checks whether there is an instance method by the same name, and if there is, invokes it on the action's payload (`action.data`). If no method matches the action's type, it returns the current state; there is no need to write a method to handle default cases.
 
 ### Overriding Default Behavior
 
@@ -80,7 +80,7 @@ If you want to create a utility instance method but you do not want Oodux to tur
 
 ```
 
-### Immutable Editing Helpers
+### Built-Ins and Magic Methods
 
 Oodux comes with a handful of immutable editing helper functions, like `this.add` seen above. Oodux will also automatically create magic instance methods (with corresponding action types, creators, and static dispatching methods) for each property on your initial state, depending on the type of its initial value; `this.setCurrent` seen above is an example of that; it is automatically created because the initial state includes a property called `current`. See the API for details.
 
@@ -120,7 +120,7 @@ There is no need to use thunk middleware. Async actions should be static methods
 
 ```
 
-These methods should simply implement the async logic you need, then dispatch directly to the store by calling the static methods which correspond to either the instance methods you created for the reducer or magic methods created automatically. Note that because these are static methods, `this` refers to the class, not an instance -- so `this.setPets(data)` above is not actually an invocation of the instance method that the user created -- it is invoking the static method created automatically by Oodux.
+These methods should simply implement the async logic you need, then dispatch directly to the store by calling the static methods which correspond to either the instance methods you created for the reducer or magic methods created automatically. Note that because these are static methods, `this` refers to the class, not an instance -- so `this.removeUser()` above is not actually an invocation of the instance method that the user created -- it is invoking the static method created automatically by Oodux.
 
 Note that the current state is also accessible from your Oodux subclass by calling the `getState` static method as in the `getPets` static method above.
 
@@ -159,7 +159,7 @@ Note that instead of importing the whole State class, we could also add lines to
 export const { deletePet, toggleView } = State
 ```
 
-When creating custom static async methods, it suggested that these should use static field and arrow notation to allow for easy export without the need to manually bind.
+When creating custom static methods, it suggested that these should use static field and arrow notation to allow for easy export without the need to manually bind.
 
 ```js
 //store.js
@@ -169,11 +169,11 @@ export default class State extends Oodux {
 	}
 }
 
-export const {fetchData} = State
+export const { fetchData } = State
 
 //file2
 
-import {fetchData} from "./store.js"
+import { fetchData } from "./store.js"
 
 export default props => <button onClick={() => fetchData(props.id)}>
 
@@ -240,15 +240,15 @@ export default State.wrapMiddleware(reduxDevTools).init()
 
 ### Multiple Reducers
 
-Oodux supports the multiple reducers pattern seen in Redux. In order to do this, first determine a parent class -- it can be the class exported by the Oodux package, or you can create a subclass which extends Oodux. Then create classes which extend the parent class -- one for each slice of your state. Then call the `initSlices` method on the parent class, passing in its subclasses as arguments.
+Oodux supports the multiple reducers pattern seen in Redux. In order to do this, first determine a parent class -- it can be the class exported by the Oodux package, or you can create a subclass which extends Oodux. Then create classes which extend the parent class -- one for each slice of your state. Then call the `initSlices` method on the parent class, passing in on object with its subclasses as values. The keys should match the names of the subclasses.
 
 ```js
-export default Oodux.initSlices(Users, Pets, Parks)
+export default Oodux.initSlices({ Users, Pets, Parks })
 ```
 
-This will create a state object whose keys are camel-cased versions of the names of the relevant subclasses. Note that parent class is not included in the state object, so there is no point in defining a constructor on the parent class.
+This will create a state object whose keys are camel-cased versions of the names of the relevant subclasses. (So, `user` for `User`, etc.) Note that parent class is not included in the state object, so there is no point in defining a constructor on the parent class.
 
-It may still be worthwhile to define a custom parent class instead of using Oodux for the following reasons: 1) you may wish to create utility methods which are available to all subclasses (note that these do not need to be prefixed with an underscore, because Oodux will not try to make action creators for methods on the parent class); 2) you may wish to put some or all of your async actions on your parent class as a way to organize your redux logic.
+It may still be worthwhile to define an Oodux subclass for the parent class instead of using the Oodux export itself for the following reasons: 1) you may wish to create utility methods which are available to all subclasses (note that these do not need to be prefixed with an underscore, because Oodux will not try to make action creators for methods on the parent class); 2) you may wish to put some or all of your async actions on your parent class as a way to organize your redux logic.
 
 The static method `getSlice()` returns the current state of the slice corresponding to the calling class.
 
@@ -277,6 +277,219 @@ By default, all automatically created actions and dispatching methods are attach
 
 Note that if two or more state slices have properties of the same name, the magic reducing methods will still be created, but no action creators or disaptchers will be created.
 
+### Complete Example
+
+The following toy example of a store with two slices shows all the magic methods that would be created.
+
+```js
+import randomNameGenerator from '../rng'
+
+class User extends Oodux {
+	firstName = ""
+	lastName = ""
+
+	setRandomFirstName() {
+		return this.setFirstName(this._getRandomName());
+	}
+
+	get fullName() {
+		return `${this.firstName} ${this.lastName}`
+	}
+
+	_getRandomName() {
+		return randomNameGenerator({ seed: this.firstName })
+	}
+}
+
+class Widget extends Oodux {
+	score = 0
+}
+
+export default Oodux.initSlices({ User, Widget })
+
+```
+
+Here's what is created by calling `Oodux.initSlices`:
+
+| Action Type | Action Creator | Reducing Method | Dispatching Method |
+|----|-----|----|----|
+| `clear` | `Oodux.__creators.clear` | `Oodux#clear` | `Oodux.clear` |
+| `clearUser` | `Oodux.__creators.clearUser` | `Oodux#clearUser` | `Oodux.clearUser` |
+| `setUser` | `Oodux.__creators.setUser` | `Oodux#setUser` | `Oodux.setUser` |
+| `setFirstName` | `User.__creators.setFirstName` | `User#setFirstName` | `Oodux.setFirstName` |
+| `setLastName` | `User.__creators.setLastName` | `User#setLastName` | `Oodux.setLastName` |
+| `setRandomFirstName` | `User.__creators.setRandomFirstName` | (defined by user) | `Oodux.setRandomFirstName` |
+| `clearWidget` | `Oodux.__creators.clearWidget` | `Oodux#clearWidget` | `Oodux.clearWidget` |
+| `setWidget` | `Oodux.__creators.setWidget` | `Oodux#setWidget` | `Oodux.setWidget` |
+| `incrementScore` | `Widget.__creators.incrementScore` | `Widget#incrementScore` | `Oodux.incrementScore` |
+
+
+Note that all dispatching methods are attached to whichever class calls `initSlices`, and are therefore available to its subclasses via JS inheritance rules.
+
+Note also that `clear` is a built-in reducing method that clears the state. Since it's built-in, all slices will have it. Therefore, dispatching `clear` will clear your entire global state, not just an individual slice (even if you call it from a slice/subclass).
+
+### Typescript
+
+Oodux provides a Typescript type declaration. However, using Typescript with Oodux can be a bit tricky as it relates to magic methods.
+
+#### Getting the type of the Root State
+
+When using multiple reducers, to get the type of the root state, import the `TopLevelState` type and apply it to the type of the object passed to `initSlices`.
+
+```ts
+import Oodux, { TopLevelState } from 'oodux';
+
+const slices = { User, Product };
+
+export default Oodux.initSlices(slices);
+
+export type RootState = TopLevelState<typeof slices>;
+```
+
+When using a single reducer, the Oodux subclass itself suffices as the type of state, naturally.
+
+#### Using magic static methods
+
+Typescript will, naturally, not immediately infer the presence of magic methods on the Oodux subclasses. To convince Typescript that they are present, cast the subclass to the `MagicClass` type exported by Oodux. The following example shows a few ways you could do this:
+
+```ts
+import Oodux, { MagicClass } from 'oodux';
+import axios from 'axios';
+
+type Static = MagicClass<typeof User>
+
+export default class User extends Oodux {
+	username: string = ""
+	acl: number = 0
+	displayName: string = ""
+	err: string = ""
+
+	static fetchUserAcl = async (username: string) => {
+		const This = this as Static;
+		try {
+			const { data: acl } = await axios.get(`/api/user/${username}/acl`);
+			This.setAcl(acl);
+		} catch (err) {
+			This.setErr((err as Error).message);
+		}
+	}
+
+	static fetchUserAcl = async (username: string) => {
+		try {
+			const { data: acl } = await axios.get(`/api/user/${username}/acl`);
+			(this as Static).setAcl(acl);
+		} catch (err) {
+			(this as Static).setErr((err as Error).message);
+		}
+	}
+}
+```
+
+This is also necessary when exporting magic methods, including the dispatching methods automatically created for user-defined reducing methods:
+
+```ts
+export const { setUsername, fetchUser, createUser } = User as Static;
+```
+
+There are two additional magic methods on each class that the `MagicClass` cast actually won't help with: `set${cls.name}` and `clear${cls.name}`. So in the case of a slice/subclass called `User` like in the above example, Oodux will attach methods called `setUser` and `clearUser` to the parent class. Typescript can't programmatically infer these exist on the `MagicClass` type, because the name of a class is apparently not statically determinable.[^1] These can be cast onto the parent class by casting to `MagicTopLevel`, however, like so:
+
+```ts
+import Oodux, { TopLevelState, MagicClass, MagicTopLevel } from 'oodux';
+import User from './User';
+import Product from './Product';
+
+const slices = { User, Product };
+
+export default Oodux.initSlices(slices);
+
+export type RootState = TopLevelState<typeof slices>;
+
+export type Static =
+	& MagicClass<typeof User>
+	& MagicClass<typeof Product>
+	& MagicTopLevel<typeof slices>
+```
+
+The `Static` type (or whatever you call it) can then be imported into each slice/subclass module:
+
+```ts
+import type { Static } from './';
+import Oodux from 'oodux';
+import axios from 'axios';
+
+export default class User extends Oodux {
+	username: string = ""
+	acl: number = 0
+	displayName: string = ""
+	err: string = ""
+
+	static fetchUser = async (username: string) => {
+		const This = this as Static;
+		try {
+			const { data: user } = await axios.get(`/api/user/${username}`);
+			This.setUser(user);
+		} catch (err) {
+			This.setErr((err as Error).message);
+		}
+	}
+
+```
+
+When using this pattern, it may make most sense to export all your dispatching methods from the file you export the store from:
+
+```ts
+import Oodux, { TopLevelState, MagicClass, MagicTopLevel } from 'oodux';
+import User from './User';
+import Product from './Product';
+
+const slices = { User, Product };
+
+export default Oodux.initSlices(slices);
+
+export type RootState = TopLevelState<typeof slices>;
+
+export type Static =
+	& MagicClass<typeof User>
+	& MagicClass<typeof Product>
+	& MagicTopLevel<typeof slices>
+
+export const { setUser, setProduct, clearProduct, setAcl, setProductDetails } = Oodux as Static;
+```
+
+[^1]: If anyone knows how to do this, I'd love to know!
+
+#### Using magic instance methods
+
+You may never use magic instance methods yourself, simply using their static dispatching equivalents. But you might want to use them to create more complex instance methods, like this:
+
+```js
+	makeAdmin() {
+		return this.setAcl(5);
+	}
+```
+
+Typescript won't know about the `setAcl` magic method, however, so you'll need to import the `Magic` type and cast `this` to it. Here are two approaches; the first seems best.
+
+```ts
+import Oodux, { Magic } from 'oodux';
+
+export default class User extends Oodux {
+	username: string = ""
+	acl: number = 0
+	displayName: string = ""
+	err: string = ""
+
+	makeAdmin(this: Magic<User>) {
+		return this.setAcl(5);
+	}
+
+	makeAdmin() {
+		return (this as unknown as Magic<User>).setAcl(5);
+	}
+```
+
+Note that using a `this`-parameter for the static methods to cast the class to `MagicClass` won't work, because `this` parameters are not allowed in arrow functions. You could define them as normal methods, but this would require manually binding each static method before exporting, or else importing the class into front-end components to call the unbound methods from the class.
+
 ## API
 
 ### Static Properties
@@ -302,12 +515,12 @@ State.applyMiddleware(mware).wrapMiddleware(reduxDevTools).init()
 Oodux.applyMiddleware(mware).initSlices(User, Products, Orders)
 ```
 
-#### Oodux.initSlices(OoduxSubclass1, OoduxSubclass2[, ...[, OoduxSubclassN]])
+#### Oodux.initSlices(slices: Record<string, OoduxSubclass>)
 
 Creates and combines the reducers on each Oodux subclass, applies and wraps any middleware passed in by `Oodux.applyMiddleware` and `Oodux.wrapMiddleware`, and creates and returns the store. This method also creates the action types, action creators, and dispatching static methods to correspond to each instance method on the OoduxSubclasses, as well as magic methods and their corresponding action types, creators, and dispatchers based on the initial state of each class, and memoizes any getters on each subclass. The dispatching static methods are attached to the invoking class of this method, which makes all static dispatchers available to all subclasses. When calling this method, do not call `Oodux.init`.
 
 ```js
-Oodux.initSlices(Dogs, Cats, PetStores)
+Oodux.initSlices({ Dogs, Cats, PetStores })
 ```
 
 #### Oodux.init()

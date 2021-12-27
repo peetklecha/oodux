@@ -35,13 +35,13 @@ class User extends Oodux {
 		this.setFriends(data)
 	}
 
-	clearFriends() {
-		return this.setFriends([])
-	}
+	// clearFriends() {
+	// 	return this.setFriends([])
+	// }
 
-	clearUser() {
-		return new User()
-	}
+	// clearUser() {
+	// 	return new User()
+	// }
 
 	recordDate() {
 		return this.addToData([new Date()])
@@ -51,7 +51,7 @@ class User extends Oodux {
 class Products extends Oodux {
 	constructor() {
 		super()
-		this.products = []
+		this.items = []
 		this.coupons = []
 		this.data = []
 	}
@@ -61,7 +61,7 @@ class Products extends Oodux {
 	}
 }
 
-const multiStore = Oodux.initSlices(User, Products)
+const multiStore = Oodux.initSlices({ User, Products })
 
 describe("Oodux.init", () => {
 	const state = singleStore.getState()
@@ -144,12 +144,12 @@ describe("Oodux.initSlices", () => {
 	})
 	it("handles same-named user methods", () => {
 		User.setId(12)
-		Products.setProducts([1, 2, 3])
+		Products.setItems([1, 2, 3])
 		expect(Oodux.getState().user.id).toBe(12)
-		expect(Oodux.getState().products.products).toEqual([1, 2, 3])
+		expect(Oodux.getState().products.items).toEqual([1, 2, 3])
 		Oodux.clearUser()
 		expect(Oodux.getState().user.id).toBe(0)
-		expect(Oodux.getState().products.products).toEqual([])
+		expect(Oodux.getState().products.items).toEqual([])
 	})
 	it("handles same-named user properties", () => {
 		expect(typeof User.prototype.setData).toBe("function")
@@ -166,6 +166,16 @@ describe("Oodux.initSlices", () => {
 		expect(Oodux.getState().user.data.length).toBe(0)
 		Oodux.recordDate()
 		expect(Oodux.getState().user.data.length).toBe(1)
+	})
+	it("handles magic top-level methods", () => {
+		User.clear()
+		expect(Oodux.getState().user).toEqual(new User())
+		expect(Oodux.getState().products).toEqual(new Products())
+		User.setId(25)
+		expect(Oodux.getState().user.id).toBe(25)
+		Products.clear()
+		expect(Oodux.getState().user).toEqual(new User())
+		expect(Oodux.getState().products).toEqual(new Products())
 	})
 })
 

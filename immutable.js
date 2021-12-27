@@ -38,6 +38,10 @@ module.exports = class ImmutableState {
 		return output
 	}
 
+	set(obj) {
+		return this.clear().update(obj)
+	}
+
 	add(obj) {
 		return this.__map(obj, (base, value) => [...base, value])
 	}
