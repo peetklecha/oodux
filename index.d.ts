@@ -79,9 +79,12 @@ type OnlyArrayOfIdedObjectProperties<T> = {
 
 type TypeOfId<T extends { id: any }> = T["id"]
 
-type PropertyToElementIdValue<T> = {
+type ObjectToArrayPropElementId<T, U extends keyof OnlyArrayOfIdedObjectProperties<T>> =
+	ArrayElement<OnlyArrayOfIdedObjectProperties<T>[U]> extends { id: any } ? ArrayElement<OnlyArrayOfIdedObjectProperties<T>[U]> : never
+
+type PropertiesToElementIdValue<T> = {
 	[Property in keyof OnlyArrayOfIdedObjectProperties<T>]: TypeOfId<
-		ArrayElement<OnlyArrayOfIdedObjectProperties<T>[Property]>
+		ObjectToArrayPropElementId<T, Property>
 	>
 }
 
@@ -90,14 +93,6 @@ type Modifiers<T> = {
 		base: ArrayElement<OnlyArrayOfObjectProperties<T>[Property]>
 	) => ArrayElement<OnlyArrayOfObjectProperties<T>[Property]>
 }
-
-// type ArrayPropertyElementValueTypes<T, U> = {
-// 	[Property in keyof ArrayPropertyElementTypes<T> as ArrayPropertyElementTypes<T>[Property] extends { [key: U]: any } ? Property : never ]: ArrayPropertyElementTypes<T>[Property][U]
-// }
-
-// interface _Setter {
-// 	[key: `set${Capitalize<string & keyof this>}`]: () => this
-// }
 
 type MinusOoduxBuiltins<T> = Omit<
 	T,
@@ -174,7 +169,7 @@ type IdRemover<T> = {
 	[Property in keyof OnlyArrayOfIdedObjectProperties<T> as `removeFrom${Capitalize<
 		string & Property
 	>}ById`]: (
-		id: TypeOfId<ArrayElement<OnlyArrayOfIdedObjectProperties<T>[Property]>>
+		id: TypeOfId<ObjectToArrayPropElementId<T, Property>>
 	) => T
 }
 
@@ -266,11 +261,7 @@ type IdRemoverDispatcher<T extends new (...args: any) => any> = {
 	[Property in keyof OnlyArrayOfIdedObjectProperties<
 		UserInstanceData<T>
 	> as `removeFrom${Capitalize<string & Property>}ById`]: (
-		id: TypeOfId<
-			ArrayElement<
-				OnlyArrayOfIdedObjectProperties<UserInstanceData<T>>[Property]
-			>
-		>
+		id: TypeOfId<ObjectToArrayPropElementId<UserInstanceData<T>, Property>>
 	) => void
 }
 
@@ -278,10 +269,6 @@ type UserMethodDispatcher<T extends new (...args: any) => any> = {
 	[Property in keyof UserInstanceMethods<T> as UserInstanceMethods<T>[Property] extends Function
 		? Property
 		: never]: (...args: Parameters<UserInstanceMethods<T>[Property]>) => void
-}
-
-type SelfSetter<T extends new (...args: any) => any> = {
-	[Property in T["name"] as `set${Property}`]: (arg: any) => void
 }
 
 export type MagicClass<T extends new (...args: any) => any> = T &
@@ -295,12 +282,7 @@ export type MagicClass<T extends new (...args: any) => any> = T &
 	RemoverDispatcher<T> &
 	IdRemoverDispatcher<T> &
 	UserMethodDispatcher<T> &
-	// SelfSetter<T> &
 	{ clear(): void }
-
-// type GetState<T> = {
-// 	[Property in ]
-// }
 
 interface SliceInitObj {
 	[key: string]: new () => any
@@ -344,7 +326,7 @@ declare class Oodux {
 		key: InnerKey,
 		obj: Partial<PropertyToElementPropertyValue<this, OuterKey, InnerKey>>
 	): this
-	removeById(obj: Partial<PropertyToElementIdValue<this>>): this
+	removeById(obj: Partial<PropertiesToElementIdValue<this>>): this
 	updateBy<
 		OuterKey extends keyof OnlyArrayOfObjectProperties<this>,
 		InnerKey extends keyof ArrayElement<
@@ -354,7 +336,7 @@ declare class Oodux {
 		key: InnerKey,
 		obj: Partial<PropertyToElementPropertyValue<this, OuterKey, InnerKey>>
 	): this
-	updateById(obj: Partial<PropertyToElementIdValue<this>>): this
+	updateById(obj: Partial<PropertiesToElementIdValue<this>>): this
 	updateAll(obj: Partial<Modifiers<this>>): this
 }
 
