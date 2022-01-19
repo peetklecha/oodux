@@ -59,6 +59,15 @@ type OnlyArrayOfObjectProperties<T> = {
 		: never]: OnlyArrayProperties<T>[Property]
 }
 
+type PropertyToElement<
+	T,
+	OuterKey extends keyof OnlyArrayOfObjectProperties<T>,
+> = {
+	[Property in OuterKey]: ArrayElement<
+	OnlyArrayOfObjectProperties<T>[OuterKey]
+	>
+}
+
 type PropertyToElementPropertyValue<
 	T,
 	OuterKey extends keyof OnlyArrayOfObjectProperties<T>,
@@ -324,7 +333,7 @@ declare class Oodux {
 		>
 	>(
 		key: InnerKey,
-		obj: Partial<PropertyToElementPropertyValue<this, OuterKey, InnerKey>>
+		obj: Partial<PropertyToElement<this, OuterKey>>
 	): this
 	removeById(obj: Partial<PropertiesToElementIdValue<this>>): this
 	updateBy<
@@ -334,10 +343,21 @@ declare class Oodux {
 		>
 	>(
 		key: InnerKey,
-		obj: Partial<PropertyToElementPropertyValue<this, OuterKey, InnerKey>>
+		obj: Partial<PropertyToElement<this, OuterKey>>
 	): this
 	updateById(obj: Partial<PropertiesToElementIdValue<this>>): this
 	updateAll(obj: Partial<Modifiers<this>>): this
 }
 
 export default Oodux
+
+// interface Element {
+// 	a: string,
+// 	b: number
+// }
+
+// interface State {
+// 	elements: Element[]
+// }
+
+// type X = Partial<PropertyToElement<State, "elements">>
