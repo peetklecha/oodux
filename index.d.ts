@@ -231,7 +231,7 @@ type AppenderDispatcher<T extends new (...args: any) => any> = {
 	[Property in keyof OnlyArrayProperties<
 		UserInstanceData<T>
 	> as `addTo${Capitalize<string & Property>}`]: (
-		value: ArrayElement<OnlyArrayProperties<UserInstanceData<T>>[Property]>
+		value: OnlyArrayProperties<UserInstanceData<T>>[Property]
 	) => void
 }
 
@@ -321,6 +321,7 @@ declare class Oodux {
 	static getState<T>(): T
 	static getSlice(): any
 	static initSlices(obj: SliceInitObj): Store
+	static store: Store
 	clear(): this
 	copy(): this
 	update(obj: Partial<this>): this
