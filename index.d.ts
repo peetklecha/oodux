@@ -148,7 +148,7 @@ type Incrementer<T> = {
 type Appender<T> = {
 	[Property in keyof OnlyArrayProperties<T> as `addTo${Capitalize<
 		string & Property
-	>}`]: (value: ArrayElement<OnlyArrayProperties<T>[Property]>) => T
+	>}`]: (value: OnlyArrayProperties<T>[Property]) => T
 }
 
 type Updater<T> = {

@@ -12,7 +12,7 @@ class Oodux extends ImmutableState {
 	static __init(topLevelClass) {
 		if (this === Oodux) throw new Error("Failed to subclass Oodux.")
 		this.__creators = {}
-		this.__initialState = new this()
+		this.__currentState = this.__initialState = new this()
 		this.__syncClasses(topLevelClass)
 		this.__makeUserMethods()
 		this.__makeDefaultMethods()
@@ -22,7 +22,8 @@ class Oodux extends ImmutableState {
 
 	static __reducer(state, action) {
 		state = state || this.__initialState
-		if (state[action.type]) return state[action.type](action.data)
+		if (state[action.type]) state = state[action.type](action.data)
+		this.__currentState = state
 		return state
 	}
 
@@ -60,7 +61,7 @@ class Oodux extends ImmutableState {
 		const userGetter = descriptor.get.bind(
 			new Proxy(this, {
 				get(target, stateKey) {
-					const value = target.getSlice()[stateKey]
+					const value = target.__currentState[stateKey]
 					target.__getters[getterKey].componentValues[stateKey] = value
 					return value
 				},
@@ -78,7 +79,7 @@ class Oodux extends ImmutableState {
 		Object.defineProperty(prototype, getterKey, {
 			get: () => {
 				const memo = this.__getters[getterKey]
-				const state = this.getSlice()
+				const state = this.__currentState
 				const values = Object.entries(memo.componentValues)
 				if (
 					!memo.used ||
