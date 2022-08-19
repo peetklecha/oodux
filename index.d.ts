@@ -231,7 +231,7 @@ type AppenderDispatcher<T extends new (...args: any) => any> = {
 	[Property in keyof OnlyArrayProperties<
 		UserInstanceData<T>
 	> as `addTo${Capitalize<string & Property>}`]: (
-		value: OnlyArrayProperties<UserInstanceData<T>>[Property]
+		value: OnlyArrayProperties<UserInstanceData<T>>[Property][]
 	) => void
 }
 
@@ -351,14 +351,3 @@ declare class Oodux {
 }
 
 export default Oodux
-
-// interface Element {
-// 	a: string,
-// 	b: number
-// }
-
-// interface State {
-// 	elements: Element[]
-// }
-
-// type X = Partial<PropertyToElement<State, "elements">>
