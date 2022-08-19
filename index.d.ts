@@ -1,4 +1,4 @@
-import { Store } from "redux"
+import { Store, Middleware, StoreEnhancer } from "redux"
 
 type ArrayElement<ArrayType> = ArrayType extends readonly (infer ElementType)[]
 	? ElementType
@@ -322,6 +322,8 @@ declare class Oodux {
 	static getSlice(): any
 	static initSlices(obj: SliceInitObj): Store
 	static store: Store
+  static applyMiddleware(...middleware: Middleware[]): typeof Oodux
+  static wrapMiddleware(...middleware: StoreEnhancer[]): typeof Oodux
 	clear(): this
 	copy(): this
 	update(obj: Partial<this>): this
