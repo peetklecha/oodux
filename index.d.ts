@@ -231,7 +231,7 @@ type AppenderDispatcher<T extends new (...args: any) => any> = {
 	[Property in keyof OnlyArrayProperties<
 		UserInstanceData<T>
 	> as `addTo${Capitalize<string & Property>}`]: (
-		value: OnlyArrayProperties<UserInstanceData<T>>[Property][]
+		value: OnlyArrayProperties<UserInstanceData<T>>[Property]
 	) => void
 }
 
